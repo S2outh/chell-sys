@@ -121,7 +121,7 @@ fn generate_struct(
     }
 
     for addr in address_endings.iter() {
-        let full_addr = format!("{}.{} \n", address, &addr.to_token_stream().to_string());
+        let full_addr = format!("{}.{}", address, &addr.to_token_stream().to_string());
         doc.sub_addresses.push(full_addr);
     }
     doc.type_name = tmty.to_token_stream().to_string();
