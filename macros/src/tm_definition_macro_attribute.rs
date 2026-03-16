@@ -316,7 +316,7 @@ pub fn impl_macro(ast: syn::Item, mut id: u16, tmtc_system_address: syn::Path) -
 
     quote! {
         pub mod #root_mod_ident {
-            const __TOOLING_METADATA: &str = #str_doc;
+            pub const __TOOLING_METADATA: &str = #str_doc;
             use #tmtc_system_address::{TelemetryDefinition, _internal::*, NotFoundError};
             pub const fn from_id(id: u16) -> Result<&'static dyn TelemetryDefinition, NotFoundError> {
                 match id {
