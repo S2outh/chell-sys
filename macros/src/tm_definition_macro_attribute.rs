@@ -39,9 +39,24 @@ impl Parse for TmValueMacroInput {
     }
 }
 
+#[derive(Default, serde::Serialize)]
+struct DefinitionDocumentation {
+    base_address: String,
+    id: u16,
+    description: String,
+    sub_addresses: Vec<String>,
+}
+
+#[derive(Default, serde::Serialize)]
+struct FullDocumentation {
+    base_address: String,
+    definitions: Vec<DefinitionDocumentation>,
+}
+
 fn generate_struct(
     address: &Vec<syn::Ident>,
     id: &mut u16,
+    docs: &mut Vec<DefinitionDocumentation>,
     v: &syn::ItemStruct,
 ) -> [TokenStream; 4] {
     // Parse "tmv" attribute
@@ -87,19 +102,29 @@ fn generate_struct(
     // Parse address
     let address = format!("{}.{}", str_base_addr, def.to_string().to_snake_case());
     // generated documentation
-    let mut calibrated = String::new();
-    for (i, addr) in address_endings.iter().enumerate() {
-        let doc = format!("{}, {} \n", i, &addr.to_token_stream().to_string());
-        calibrated.push_str(&doc);
+    let mut doc = DefinitionDocumentation::default();
+    doc.base_address = address.clone();
+    doc.id = tm_id;
+    if let Some(description) = v
+        .attrs
+        .iter()
+        .find(|attr| attr.path().is_ident("doc"))
+        .map(|v| {
+            v.parse_args::<MetaNameValue>()
+                .unwrap()
+                .value
+                .to_token_stream()
+                .to_string()
+        })
+    {
+        doc.description = description;
     }
-    let doc = format!(
-        "
-telemetry address: {},
-can id: {},
-calibrated address endings:
-{}",
-        address, tm_id, &calibrated
-    );
+    for addr in address_endings.iter() {
+        let full_addr = format!("{}.{} \n", address, &addr.to_token_stream().to_string());
+        doc.sub_addresses.push(full_addr);
+    }
+    let str_doc = serde_json::to_string(&doc).unwrap_or(String::new());
+    docs.push(doc);
 
     // Serializer func
     let serializer_func = if cfg!(feature = "ground") {
@@ -130,7 +155,7 @@ calibrated address endings:
     };
     [
         quote! {
-            #[doc = #doc]
+            #[doc = #str_doc]
             pub struct #def;
             impl InternalTelemetryDefinition for #def {
                 type TMValueType = #tmty;
@@ -157,6 +182,7 @@ calibrated address endings:
 fn generate_module_recursive(
     address: &Vec<syn::Ident>,
     id: &mut u16,
+    docs: &mut Vec<DefinitionDocumentation>,
     v: &syn::ItemMod,
 ) -> [TokenStream; 4] {
     // Parse "tmm" attribute
@@ -205,6 +231,7 @@ fn generate_module_recursive(
     let [module_content, id_getters, address_getters, byte_lengths] = generate_tree(
         address,
         id,
+        docs,
         &v.content.as_ref().expect("module sould not be empty").1,
     );
 
@@ -238,12 +265,17 @@ fn generate_module_recursive(
     ]
 }
 
-fn generate_tree(address: Vec<syn::Ident>, id: &mut u16, items: &Vec<Item>) -> [TokenStream; 4] {
+fn generate_tree(
+    address: Vec<syn::Ident>,
+    id: &mut u16,
+    docs: &mut Vec<DefinitionDocumentation>,
+    items: &Vec<Item>,
+) -> [TokenStream; 4] {
     items
         .iter()
         .map(|v| match v {
-            syn::Item::Struct(v) => generate_struct(&address, id, v),
-            syn::Item::Mod(v) => generate_module_recursive(&address, id, v),
+            syn::Item::Struct(v) => generate_struct(&address, id, docs, v),
+            syn::Item::Mod(v) => generate_module_recursive(&address, id, docs, v),
             _ => panic!("module should only contain other modules and structs"),
         })
         .fold(from_fn(|_| TokenStream::new()), |acc, src| {
@@ -270,11 +302,21 @@ pub fn impl_macro(ast: syn::Item, mut id: u16, tmtc_system_address: syn::Path) -
     let start_id = id;
     let id_ref = &mut id;
 
-    let [module_content, id_getters, address_getters, byte_lengths] =
-        generate_tree(vec![root_mod_ident.clone()], id_ref, &root_mod_content.1);
+    let mut doc = FullDocumentation::default();
+    doc.base_address = root_mod_ident.to_string();
+
+    let [module_content, id_getters, address_getters, byte_lengths] = generate_tree(
+        vec![root_mod_ident.clone()],
+        id_ref,
+        &mut doc.definitions,
+        &root_mod_content.1,
+    );
+
+    let str_doc = serde_json::to_string(&doc).unwrap_or(String::new());
 
     quote! {
         pub mod #root_mod_ident {
+            const __TOOLING_METADATA: &str = #str_doc;
             use #tmtc_system_address::{TelemetryDefinition, _internal::*, NotFoundError};
             pub const fn from_id(id: u16) -> Result<&'static dyn TelemetryDefinition, NotFoundError> {
                 match id {
