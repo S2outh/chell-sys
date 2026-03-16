@@ -23,6 +23,7 @@ fn transfer(value: &u32) -> f32 {
 
 #[telemetry_definition(id = 0, address = tmtc_system)]
 mod telemetry {
+    /// Test doc
     #[tmv(i64)]
     struct Timestamp;
     #[tmv(u32, c = crate::transfer)]

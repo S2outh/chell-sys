@@ -43,6 +43,7 @@ impl Parse for TmValueMacroInput {
 struct DefinitionDocumentation {
     base_address: String,
     id: u16,
+    type_name: String,
     description: String,
     sub_addresses: Vec<String>,
 }
@@ -110,19 +111,21 @@ fn generate_struct(
         .iter()
         .find(|attr| attr.path().is_ident("doc"))
         .map(|v| {
-            v.parse_args::<MetaNameValue>()
-                .unwrap()
-                .value
-                .to_token_stream()
-                .to_string()
+            let Meta::NameValue(v) = &v.meta else {
+                panic!()
+            };
+            v.value.to_token_stream().to_string()
         })
     {
         doc.description = description;
     }
+
     for addr in address_endings.iter() {
         let full_addr = format!("{}.{} \n", address, &addr.to_token_stream().to_string());
         doc.sub_addresses.push(full_addr);
     }
+    doc.type_name = tmty.to_token_stream().to_string();
+
     let str_doc = serde_json::to_string(&doc).unwrap_or(String::new());
     docs.push(doc);
 

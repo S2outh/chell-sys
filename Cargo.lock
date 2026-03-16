@@ -110,7 +110,7 @@ dependencies = [
 
 [[package]]
 name = "tmtc-system"
-version = "4.8.1"
+version = "4.8.2"
 dependencies = [
  "serde",
  "serde_cbor",
