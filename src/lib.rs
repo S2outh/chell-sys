@@ -43,13 +43,13 @@ pub const trait ChellDefinition: Any {
 }
 
 #[cfg(feature = "ground")]
-pub use crate::chell_value::ground_tm;
+pub use crate::chell_value::ground;
 /// Reexports that should only be used by the macro generated code
 pub mod _internal {
     use crate::ChellValue;
     pub use crate::bitfield::Bitfield;
     #[cfg(feature = "ground")]
-    pub use crate::ground_tm::*;
+    pub use crate::ground::*;
     pub const trait InternalChellDefinition: crate::ChellDefinition {
         type ChellValueType: crate::ChellValue;
         const MAX_BYTE_SIZE: usize = Self::ChellValueType::MAX_BYTE_SIZE;

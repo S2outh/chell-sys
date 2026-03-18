@@ -49,7 +49,7 @@ beacon!(
 );
 
 struct CborSerializer;
-impl ground_tm::Serializer for CborSerializer {
+impl ground::Serializer for CborSerializer {
     type Error = serde_cbor::Error;
     fn serialize_value<T: serde::Serialize>(
         &self,

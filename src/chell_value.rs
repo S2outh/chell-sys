@@ -14,7 +14,7 @@ pub trait ChellValue {
 }
 
 #[cfg(feature = "ground")]
-pub mod ground_tm {
+pub mod ground {
     use crate::ChellDefinition;
     use core::fmt::Debug;
     // generic ground serializer function wrapper
