@@ -4,6 +4,7 @@ use crate::{ChellDefinition, ChellValue};
 macro_rules! fd_compat_chell_container {
     ($($def:tt)+) => {
         $crate::ChellContainer<{
+            use $crate::_internal::InternalChellDefinition;
             match $crate::ceil_to_fd_compat($($def)+ :: MAX_BYTE_SIZE) {
                 Ok(v) => v,
                 Err(_) => panic!("Max byte size too big for Fd frame")
