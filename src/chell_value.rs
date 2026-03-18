@@ -1,21 +1,21 @@
 #[derive(Debug)]
-pub enum TMValueError {
+pub enum ChellValueError {
     OutOfMemory,
     BadEnumVariant,
 }
 
 // # Trait definitions
-pub trait TMValue {
+pub trait ChellValue {
     const MAX_BYTE_SIZE: usize;
-    fn read(bytes: &[u8]) -> Result<(usize, Self), TMValueError>
+    fn read(bytes: &[u8]) -> Result<(usize, Self), ChellValueError>
     where
         Self: Sized;
-    fn write(&self, mem: &mut [u8]) -> Result<usize, TMValueError>;
+    fn write(&self, mem: &mut [u8]) -> Result<usize, ChellValueError>;
 }
 
 #[cfg(feature = "ground")]
 pub mod ground_tm {
-    use crate::TelemetryDefinition;
+    use crate::ChellDefinition;
     use core::fmt::Debug;
     // generic ground serializer function wrapper
     pub trait Serializer {
@@ -25,9 +25,9 @@ pub mod ground_tm {
             value: &V,
         ) -> Result<alloc::vec::Vec<u8>, Self::Error>;
     }
-    pub trait SerializableTMValue<DEF>: super::TMValue + serde::Serialize
+    pub trait SerializableChellValue<DEF>: super::ChellValue + serde::Serialize
     where
-        DEF: TelemetryDefinition,
+        DEF: ChellDefinition,
     {
         fn serialize_ground<T, S>(
             self,
@@ -54,18 +54,18 @@ pub mod ground_tm {
 // # Primitives
 macro_rules! primitive_value {
     ($type:ident) => {
-        impl TMValue for $type {
+        impl ChellValue for $type {
             const MAX_BYTE_SIZE: usize = size_of::<Self>();
-            fn read(bytes: &[u8]) -> Result<(usize, Self), TMValueError> {
+            fn read(bytes: &[u8]) -> Result<(usize, Self), ChellValueError> {
                 if bytes.len() < Self::MAX_BYTE_SIZE {
-                    return Err(TMValueError::OutOfMemory);
+                    return Err(ChellValueError::OutOfMemory);
                 }
                 let value = Self::from_le_bytes(bytes[..Self::MAX_BYTE_SIZE].try_into().unwrap());
                 Ok((Self::MAX_BYTE_SIZE, value))
             }
-            fn write(&self, mem: &mut [u8]) -> Result<usize, TMValueError> {
+            fn write(&self, mem: &mut [u8]) -> Result<usize, ChellValueError> {
                 if mem.len() < Self::MAX_BYTE_SIZE {
-                    return Err(TMValueError::OutOfMemory);
+                    return Err(ChellValueError::OutOfMemory);
                 }
                 let bytes = self.to_le_bytes();
                 mem[..Self::MAX_BYTE_SIZE].copy_from_slice(&bytes);
@@ -93,9 +93,9 @@ primitive_value!(f32);
 primitive_value!(f64);
 
 // # Arrays
-impl<const N: usize, T: TMValue> TMValue for [T; N] {
+impl<const N: usize, T: ChellValue> ChellValue for [T; N] {
     const MAX_BYTE_SIZE: usize = N * T::MAX_BYTE_SIZE;
-    fn read(bytes: &[u8]) -> Result<(usize, Self), TMValueError> {
+    fn read(bytes: &[u8]) -> Result<(usize, Self), ChellValueError> {
         unsafe {
             let mut pos = 0;
             let mut arr: Self = core::mem::zeroed();
@@ -107,7 +107,7 @@ impl<const N: usize, T: TMValue> TMValue for [T; N] {
             Ok((pos, arr))
         }
     }
-    fn write(&self, mem: &mut [u8]) -> Result<usize, TMValueError> {
+    fn write(&self, mem: &mut [u8]) -> Result<usize, ChellValueError> {
         let mut pos = 0;
         for i in 0..N {
             pos += self[i].write(&mut mem[pos..])?;
@@ -117,9 +117,9 @@ impl<const N: usize, T: TMValue> TMValue for [T; N] {
 }
 // # Vectors
 // use heapless::Vec;
-// impl<const N: usize, T: TMValue> TMValue for Vec<T, N> {
-//     const BYTE_SIZE: usize = N * T::BYTE_SIZE;
-//     fn read(bytes: &[u8]) -> Result<(usize, Self), TMValueError> {
+// impl<const N: usize, T: ChellValue> ChellValue for Vec<T, N> {
+//     const MAX_BYTE_SIZE: usize = N * T::MAX_BYTE_SIZE;
+//     fn read(bytes: &[u8]) -> Result<(usize, Self), ChellValueError> {
 //         let (mut pos, len) = u8::read(bytes)?;
 //         let mut vec = Vec::new();
 //         for _ in 0..len {
@@ -129,7 +129,7 @@ impl<const N: usize, T: TMValue> TMValue for [T; N] {
 //         }
 //         Ok((pos, vec))
 //     }
-//     fn write(&self, mem: &mut [u8]) -> Result<usize, TMValueError> {
+//     fn write(&self, mem: &mut [u8]) -> Result<usize, ChellValueError> {
 //         let mut pos = (self.len() as u8).write(mem)?;
 //         for i in 0..self.len() {
 //             pos += self[i].write(&mut mem[pos..])?;
@@ -139,9 +139,9 @@ impl<const N: usize, T: TMValue> TMValue for [T; N] {
 // }
 
 // # Options
-impl<T: TMValue> TMValue for Option<T> {
+impl<T: ChellValue> ChellValue for Option<T> {
     const MAX_BYTE_SIZE: usize = 1 + T::MAX_BYTE_SIZE;
-    fn read(bytes: &[u8]) -> Result<(usize, Self), TMValueError> {
+    fn read(bytes: &[u8]) -> Result<(usize, Self), ChellValueError> {
         let mut pos = 1;
         match bytes[0] {
             0u8 => Ok((pos, None)),
@@ -150,10 +150,10 @@ impl<T: TMValue> TMValue for Option<T> {
                 pos += len;
                 Ok((pos, Some(value)))
             }
-            _ => Err(TMValueError::BadEnumVariant),
+            _ => Err(ChellValueError::BadEnumVariant),
         }
     }
-    fn write(&self, mem: &mut [u8]) -> Result<usize, TMValueError> {
+    fn write(&self, mem: &mut [u8]) -> Result<usize, ChellValueError> {
         let mut pos = 1;
         match self {
             None => {

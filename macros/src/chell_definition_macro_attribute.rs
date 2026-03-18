@@ -8,8 +8,8 @@ use syn::parse::{Parse, ParseStream};
 use syn::{Item, Meta, Token, punctuated::Punctuated};
 use syn::{MetaNameValue, Type};
 
-const TM_VALUE_MACRO_NAME: &str = "tmv";
-const TM_MODULE_MACRO_NAME: &str = "tmm";
+const CHELL_VALUE_MACRO_NAME: &str = "chv";
+const CHELL_MODULE_MACRO_NAME: &str = "chm";
 
 struct TmValueMacroInput {
     pub ty: Type,
@@ -64,15 +64,15 @@ fn generate_struct(
     let args: TmValueMacroInput = v
         .attrs
         .iter()
-        .find(|attr| attr.path().is_ident(TM_VALUE_MACRO_NAME))
+        .find(|attr| attr.path().is_ident(CHELL_VALUE_MACRO_NAME))
         .expect(&format!(
             "Struct {} has no {} attribute",
-            &v.ident, TM_VALUE_MACRO_NAME
+            &v.ident, CHELL_VALUE_MACRO_NAME
         ))
         .parse_args()
         .expect(&format!(
             "Could not parse {} attribute parameters",
-            TM_VALUE_MACRO_NAME
+            CHELL_VALUE_MACRO_NAME
         ));
 
     let tmty: Type = args.ty;
@@ -90,7 +90,7 @@ fn generate_struct(
         .map(|i| i.to_token_stream())
         .intersperse(quote!(::))
         .collect();
-    // Parse type of the TMValue the struct references
+    // Parse type of the ChellValue the struct references
     // Increment id
     let tm_id = *id;
     *id += 1;
@@ -132,7 +132,7 @@ fn generate_struct(
     // Serializer func
     let serializer_func = if cfg!(feature = "ground") {
         quote! {
-            impl SerializableTMValue<#def> for #tmty {
+            impl SerializableChellValue<#def> for #tmty {
                 fn serialize_ground<T, S>(self, _def: &#def, timestamp: T, serializer: &S)
                     -> Result<alloc::vec::Vec<(&'static str, alloc::vec::Vec<u8>)>, S::Error>
                     where T: serde::Serialize + Clone + Copy,
@@ -160,13 +160,14 @@ fn generate_struct(
         quote! {
             #[doc = #str_doc]
             pub struct #def;
-            impl InternalTelemetryDefinition for #def {
-                type TMValueType = #tmty;
+            impl InternalChellDefinition for #def {
+                type ChellValueType = #tmty;
                 const ID: u16 = #tm_id;
             }
-            impl const TelemetryDefinition for #def {
+            impl const ChellDefinition for #def {
                 fn id(&self) -> u16 { Self::ID }
                 fn address(&self) -> &str { #address }
+                fn as_any(&self) -> &dyn Any { self }
             }
             #serializer_func
         },
@@ -192,12 +193,12 @@ fn generate_module_recursive(
     if let Some(module_id) = v
         .attrs
         .iter()
-        .find(|attr| attr.path().is_ident(TM_MODULE_MACRO_NAME))
+        .find(|attr| attr.path().is_ident(CHELL_MODULE_MACRO_NAME))
         .map(|v| {
             v.parse_args_with(Punctuated::<Meta, Token![,]>::parse_separated_nonempty)
                 .expect(&format!(
                     "Could not parse {} attribute parameters",
-                    TM_MODULE_MACRO_NAME
+                    CHELL_MODULE_MACRO_NAME
                 ))
                 .iter()
                 .filter_map(|m| m.require_name_value().ok())
@@ -293,9 +294,9 @@ fn generate_tree(
         })
 }
 
-pub fn impl_macro(ast: syn::Item, mut id: u16, tmtc_system_address: syn::Path) -> TokenStream {
+pub fn impl_macro(ast: syn::Item, mut id: u16, chell_address: syn::Path) -> TokenStream {
     let syn::Item::Mod(telem_defnition) = ast else {
-        panic!("telemetry defintion is not a module");
+        panic!("chell defintion is not a module");
     };
 
     let root_mod_ident = telem_defnition.ident;
@@ -320,14 +321,15 @@ pub fn impl_macro(ast: syn::Item, mut id: u16, tmtc_system_address: syn::Path) -
     quote! {
         pub mod #root_mod_ident {
             pub const __TOOLING_METADATA: &str = #str_doc;
-            use #tmtc_system_address::{TelemetryDefinition, _internal::*, NotFoundError};
-            pub const fn from_id(id: u16) -> Result<&'static dyn TelemetryDefinition, NotFoundError> {
+            use #chell_address::{ChellDefinition, _internal::*, NotFoundError};
+            use core::any::Any;
+            pub const fn from_id(id: u16) -> Result<&'static dyn ChellDefinition, NotFoundError> {
                 match id {
                     #id_getters
                     _ => Err(NotFoundError)
                 }
             }
-            pub const fn from_address(address: &str) -> Result<&'static dyn TelemetryDefinition, NotFoundError> {
+            pub const fn from_address(address: &str) -> Result<&'static dyn ChellDefinition, NotFoundError> {
                 match address {
                     #address_getters
                     _ => Err(NotFoundError)

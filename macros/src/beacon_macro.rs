@@ -32,7 +32,7 @@ pub fn impl_macro(args: Punctuated<Meta, Token![,]>) -> TokenStream {
     let timestamp_path = path_args_iter
         .get(2)
         .expect("args should include timestamp path");
-    let timestamp_type = quote! { <#timestamp_path as InternalTelemetryDefinition>::TMValueType };
+    let timestamp_type = quote! { <#timestamp_path as InternalChellDefinition>::ChellValueType };
 
     let Meta::NameValue(id_nv) = args_iter.next().expect("args should contain id") else {
         panic!("third arg should be id");
@@ -73,12 +73,12 @@ pub fn impl_macro(args: Punctuated<Meta, Token![,]>) -> TokenStream {
 
     let itd_paths: Vec<_> = paths
         .iter()
-        .map(|path| quote! { <#path as InternalTelemetryDefinition> })
+        .map(|path| quote! { <#path as InternalChellDefinition> })
         .collect();
 
     let i: Vec<_> = (0..names.len()).collect();
 
-    let serializers = names.iter().zip(paths).map(|(name, path)| {
+    let serializers = names.iter().zip(paths.clone()).map(|(name, path)| {
         quote! {
             if let Some(value) = self.#name {
                 let mut serialized = value.serialize_ground(&#path, timestamp, serializer)?;
@@ -112,18 +112,18 @@ pub fn impl_macro(args: Punctuated<Meta, Token![,]>) -> TokenStream {
     quote! {
         pub use #beacon_module_name::#beacon_name;
         mod #beacon_module_name {
-            use tmtc_system::{_internal::*, *};
+            use chell::{_internal::*, *};
             #serializer_imports
             pub const BEACON_ID: u8 = #id;
             pub struct #beacon_name {
                 storage: [u8; Self::BYTE_SIZE],
                 pub timestamp: #timestamp_type,
-                #(pub #names: Option<#itd_paths::TMValueType>),*
+                #(pub #names: Option<#itd_paths::ChellValueType>),*
             }
             impl #beacon_name {
                 pub const BYTE_SIZE: usize = #header_size
-                    + <#timestamp_type as TMValue>::MAX_BYTE_SIZE
-                    + #(<#itd_paths::TMValueType as TMValue>::MAX_BYTE_SIZE)+*;
+                    + <#timestamp_type as ChellValue>::MAX_BYTE_SIZE
+                    + #(<#itd_paths::ChellValueType as ChellValue>::MAX_BYTE_SIZE)+*;
 
                 pub fn new() -> Self {
                     Self {
@@ -160,7 +160,7 @@ pub fn impl_macro(args: Punctuated<Meta, Token![,]>) -> TokenStream {
                     // Parsers
                     #(
                         if bitfield.get(#i) {
-                            let (len, value) = #itd_paths::TMValueType::read(&bytes[pos..]).map_err(|_| ParseError::OutOfMemory)?;
+                            let (len, value) = #itd_paths::ChellValueType::read(&bytes[pos..]).map_err(|_| ParseError::OutOfMemory)?;
                             pos += len;
                             self.#names = Some(value);
                         } else {
@@ -195,16 +195,18 @@ pub fn impl_macro(args: Punctuated<Meta, Token![,]>) -> TokenStream {
                 fn set_timestamp(&mut self, timestamp: Self::Timestamp) {
                     self.timestamp = timestamp;
                 }
-                fn insert_slice(&mut self, telemetry_definition: &dyn TelemetryDefinition, bytes: &[u8]) -> Result<(), BeaconOperationError> {
-                    match telemetry_definition.id() {
-                        #(
-                            #itd_paths::ID => {
-                                let (_, value) = #itd_paths::TMValueType::read(bytes).map_err(|_| BeaconOperationError::OutOfMemory)?;
-                                self.#names = Some(value);
-                            },
-                        )*
-                        _ => return Err(BeaconOperationError::DefNotInBeacon),
-                    };
+                fn insert_slice(&mut self, chell_definition: &dyn ChellDefinition, bytes: &[u8]) -> Result<(), BeaconOperationError> {
+                    let any = chell_definition.as_any();
+
+                    #(
+                        if any.is::<#paths>() {
+                            let (_, value) = #itd_paths::ChellValueType::read(bytes).map_err(|_| BeaconOperationError::OutOfMemory)?;
+                            self.#names = Some(value);
+                        } else
+                    )*
+                    {
+                        return Err(BeaconOperationError::DefNotInBeacon);
+                    }
                     Ok(())
                 }
                 fn flush(&mut self) {

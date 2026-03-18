@@ -2,15 +2,15 @@
 #![feature(const_cmp)]
 #![cfg(feature = "ground")]
 
-use tmtc_system::*;
+use chell::*;
 extern crate alloc;
 
-#[derive(TMValue, Default, Clone, Copy, serde::Serialize)]
+#[derive(ChellValue, Default, Clone, Copy, serde::Serialize)]
 pub struct TestValue {
     pub val: u32,
 }
 
-#[derive(TMValue, Default, Clone, Copy, serde::Serialize)]
+#[derive(ChellValue, Default, Clone, Copy, serde::Serialize)]
 pub struct TestVector {
     x: i16,
     y: f32,
@@ -21,19 +21,18 @@ fn transfer(value: &u32) -> f32 {
     (value * 3) as f32
 }
 
-#[telemetry_definition(id = 0, address = tmtc_system)]
+#[chell_definition(id = 0)]
 mod telemetry {
-    /// Test doc
-    #[tmv(i64)]
+    #[chv(i64)]
     struct Timestamp;
-    #[tmv(u32, c = crate::transfer)]
-    struct FirstTMValue;
-    #[tmv(crate::TestValue, other = |v: &crate::TestValue| v.val)]
-    struct SecondTMValue;
-    #[tmm(id = 100)]
+    #[chv(u32, c = crate::transfer)]
+    struct FirstChellValue;
+    #[chv(crate::TestValue, other = |v: &crate::TestValue| v.val)]
+    struct SecondChellValue;
+    #[chm(id = 100)]
     mod some_other_mod {
-        #[tmv(crate::TestVector)]
-        struct ThirdTMValue;
+        #[chv(crate::TestVector)]
+        struct ThirdChellValue;
     }
 }
 
@@ -42,7 +41,11 @@ beacon!(
     crate::telemetry,
     crate::telemetry::Timestamp,
     id = 0,
-    values(FirstTMValue, SecondTMValue, some_other_mod::ThirdTMValue)
+    values(
+        FirstChellValue,
+        SecondChellValue,
+        some_other_mod::ThirdChellValue
+    )
 );
 
 struct CborSerializer;
@@ -68,16 +71,16 @@ fn tm_serialize() {
         z: TestValue { val: 1 },
     };
     let addresses = vec![
-        "telemetry.first_tm_value.c",
-        "telemetry.first_tm_value",
-        "telemetry.second_tm_value.other",
-        "telemetry.second_tm_value",
-        "telemetry.some_other_mod.third_tm_value",
+        "telemetry.first_chell_value.c",
+        "telemetry.first_chell_value",
+        "telemetry.second_chell_value.other",
+        "telemetry.second_chell_value",
+        "telemetry.some_other_mod.third_chell_value",
     ];
 
-    beacon.first_tm_value = Some(first_value);
-    beacon.second_tm_value = Some(second_value);
-    beacon.some_other_mod_third_tm_value = Some(third_value);
+    beacon.first_chell_value = Some(first_value);
+    beacon.second_chell_value = Some(second_value);
+    beacon.some_other_mod_third_chell_value = Some(third_value);
 
     let serialized_pairs = beacon.serialize(&CborSerializer).unwrap();
     for (ser, address) in serialized_pairs.iter().zip(addresses) {

@@ -1,17 +1,17 @@
 #![feature(const_trait_impl)]
 #![feature(const_cmp)]
-use tmtc_system::*;
+use chell::*;
 
 #[cfg(feature = "ground")]
 extern crate alloc;
 
-#[derive(TMValue, Default, Clone, Copy)]
+#[derive(ChellValue, Default, Clone, Copy)]
 #[cfg_attr(feature = "ground", derive(serde::Serialize))]
 pub struct TestValue {
     val: u32,
 }
 
-#[derive(TMValue, Default, Clone, Copy)]
+#[derive(ChellValue, Default, Clone, Copy)]
 #[cfg_attr(feature = "ground", derive(serde::Serialize))]
 pub struct TestVector {
     x: i16,
@@ -19,36 +19,36 @@ pub struct TestVector {
     z: TestValue,
 }
 
-#[telemetry_definition(id = 0)]
+#[chell_definition(id = 0)]
 mod telemetry {
-    #[tmv(u32)]
-    struct FirstTMValue;
-    #[tmv(crate::TestVector)]
-    struct SecondTMValue;
-    #[tmv(Option<i32>)]
+    #[chv(u32)]
+    struct FirstChellValue;
+    #[chv(crate::TestVector)]
+    struct SecondChellValue;
+    #[chv(Option<i32>)]
     struct OptionTest;
-    #[tmv([i16; 2])]
+    #[chv([i16; 2])]
     struct ArrayTest;
-    #[tmm(id = 100)]
+    #[chm(id = 100)]
     mod some_other_mod {
-        #[tmv(u64)]
-        struct ThirdTMValue;
-        #[tmv(i32)]
-        struct FourthTMValue;
-        #[tmv(crate::TestValue)]
-        struct FifthTMValue;
+        #[chv(u64)]
+        struct ThirdChellValue;
+        #[chv(i32)]
+        struct FourthChellValue;
+        #[chv(crate::TestValue)]
+        struct FifthChellValue;
     }
 }
 
-type PartialTestContainer = fd_compat_telemetry_container!(telemetry::some_other_mod);
-type FullTestContainer = fd_compat_telemetry_container!(telemetry);
+type PartialTestContainer = fd_compat_chell_container!(telemetry::some_other_mod);
+type FullTestContainer = fd_compat_chell_container!(telemetry);
 
 #[test]
 fn partial_container_creation() {
     assert_eq!(telemetry::some_other_mod::MAX_BYTE_SIZE, 8);
 
     let container =
-        PartialTestContainer::new(&telemetry::some_other_mod::FourthTMValue, &42).unwrap();
+        PartialTestContainer::new(&telemetry::some_other_mod::FourthChellValue, &42).unwrap();
     assert_eq!(container.id(), 101);
 
     assert_eq!(container.bytes().len(), 4);
@@ -60,7 +60,7 @@ fn full_container_creation() {
     assert_eq!(telemetry::MAX_BYTE_SIZE, 10);
 
     let container = FullTestContainer::new(
-        &telemetry::SecondTMValue,
+        &telemetry::SecondChellValue,
         &TestVector {
             x: 12,
             y: 24.,

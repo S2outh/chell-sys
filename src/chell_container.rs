@@ -1,9 +1,9 @@
-use crate::{TMValue, TelemetryDefinition};
+use crate::{ChellDefinition, ChellValue};
 
 #[macro_export]
-macro_rules! fd_compat_telemetry_container {
+macro_rules! fd_compat_chell_container {
     ($($def:tt)+) => {
-        $crate::TelemetryContainer<{
+        $crate::ChellContainer<{
             match $crate::ceil_to_fd_compat($($def)+ :: MAX_BYTE_SIZE) {
                 Ok(v) => v,
                 Err(_) => panic!("Max byte size too big for Fd frame")
@@ -28,16 +28,16 @@ pub const fn ceil_to_fd_compat(len: usize) -> Result<usize, UnsupportedValue> {
 #[derive(Debug)]
 pub struct UnsupportedValue;
 
-/// This is a generic wrapper to hold TMvalues as bytes for transfer via fdcan
-pub struct TelemetryContainer<const N: usize> {
+/// This is a generic wrapper to hold ChellValues as bytes for transfer via fdcan
+pub struct ChellContainer<const N: usize> {
     id: u16,
     storage: [u8; N],
     len: usize,
 }
-impl<const N: usize> TelemetryContainer<N> {
+impl<const N: usize> ChellContainer<N> {
     pub fn new(
-        definition: &dyn TelemetryDefinition,
-        value: &impl TMValue,
+        definition: &dyn ChellDefinition,
+        value: &impl ChellValue,
     ) -> Result<Self, UnsupportedValue> {
         let mut storage = [0u8; N];
         let len = value.write(&mut storage).map_err(|_| UnsupportedValue)?;

@@ -1,22 +1,22 @@
 #![feature(const_trait_impl)]
-use tmtc_system::*;
+use chell::*;
 
 #[cfg(feature = "ground")]
 extern crate alloc;
 
-#[derive(TMValue, Default, PartialEq, Debug, Clone, Copy)]
+#[derive(ChellValue, Default, PartialEq, Debug, Clone, Copy)]
 pub struct TestValue {
     val: Option<u32>,
 }
 
-#[derive(TMValue, Default, PartialEq, Debug, Clone, Copy)]
+#[derive(ChellValue, Default, PartialEq, Debug, Clone, Copy)]
 pub struct TestVector {
     x: i16,
     y: f32,
     z: TestValue,
 }
 
-#[derive(TMValue, Default, PartialEq, Debug, Clone, Copy)]
+#[derive(ChellValue, Default, PartialEq, Debug, Clone, Copy)]
 pub enum TestEnum {
     #[default]
     EmptyVar,
@@ -25,21 +25,21 @@ pub enum TestEnum {
     ThirdVar(TestValue),
 }
 
-#[derive(TMValue, Default, PartialEq, Debug, Clone, Copy)]
+#[derive(ChellValue, Default, PartialEq, Debug, Clone, Copy)]
 pub struct ArrayTest {
     val: [u32; 5],
 }
 
 macro_rules! to_bytes {
-    ($type: ty, $tm_value:ident) => {{
+    ($type: ty, $chell_value:ident) => {{
         let mut bytes = [0u8; <$type>::MAX_BYTE_SIZE];
-        $tm_value.write(&mut bytes).unwrap();
+        $chell_value.write(&mut bytes).unwrap();
         bytes
     }};
 }
 
 #[test]
-fn tm_value_primitives() {
+fn chell_value_primitives() {
     let first_value = 4433u32;
     let first_value_bytes = to_bytes!(u32, first_value);
     let first_value_copy = u32::read(&first_value_bytes).unwrap().1;
@@ -49,7 +49,7 @@ fn tm_value_primitives() {
 }
 
 #[test]
-fn tm_value_structs() {
+fn chell_value_structs() {
     let first_value = TestValue { val: Some(3) };
     let second_value = TestVector {
         x: 3,
@@ -68,7 +68,7 @@ fn tm_value_structs() {
 }
 
 #[test]
-fn tm_value_arrays() {
+fn chell_value_arrays() {
     let first_value: [i32; 7] = [1, 2, 3, 4, 3, 2, 1];
     let first_value_bytes: [u8; 7 * 4] = to_bytes!([i32; 7], first_value);
     let first_value_copy = <[i32; 7]>::read(&first_value_bytes).unwrap().1;
@@ -77,7 +77,7 @@ fn tm_value_arrays() {
 }
 
 #[test]
-fn tm_value_enums() {
+fn chell_value_enums() {
     let first_value = TestEnum::ThirdVar(TestValue { val: Some(42) });
     let first_value_bytes: [u8; 1 + 1 + 4] = to_bytes!(TestEnum, first_value);
     let first_value_copy = TestEnum::read(&first_value_bytes).unwrap().1;

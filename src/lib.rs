@@ -5,39 +5,54 @@
 extern crate alloc;
 
 mod bitfield;
-mod telemetry_container;
-mod telemetry_value;
+mod chell_container;
+mod chell_value;
+
+use core::any::Any;
 
 // macro reexports
-pub use macros::TMValue;
+pub use macros::ChellValue;
 pub use macros::beacon;
-pub use macros::telemetry_definition;
+pub use macros::chell_definition;
 
 // value reexports
-pub use telemetry_value::TMValue;
-pub use telemetry_value::TMValueError;
+pub use chell_value::ChellValue;
+pub use chell_value::ChellValueError;
 
 // container reexports
-pub use telemetry_container::TelemetryContainer;
-pub use telemetry_container::UnsupportedValue;
-pub use telemetry_container::ceil_to_fd_compat;
+pub use chell_container::ChellContainer;
+pub use chell_container::UnsupportedValue;
+pub use chell_container::ceil_to_fd_compat;
 
-pub const trait TelemetryDefinition {
+#[macro_export]
+macro_rules! match_value {
+    ($value:expr, {
+        $($t:ty => $body:expr,)*
+    }) => {{
+        let any = $value.as_any();
+        $(if any.is::<$t>() {
+            $body
+        })else*
+    }};
+}
+
+pub const trait ChellDefinition: Any {
     fn id(&self) -> u16;
     fn address(&self) -> &str;
+    fn as_any(&self) -> &dyn Any;
 }
 
 #[cfg(feature = "ground")]
-pub use crate::telemetry_value::ground_tm;
+pub use crate::chell_value::ground_tm;
 /// Reexports that should only be used by the macro generated code
 pub mod _internal {
-    use crate::TMValue;
+    use crate::ChellValue;
     pub use crate::bitfield::Bitfield;
     #[cfg(feature = "ground")]
     pub use crate::ground_tm::*;
-    pub const trait InternalTelemetryDefinition: crate::TelemetryDefinition {
-        type TMValueType: crate::TMValue;
-        const MAX_BYTE_SIZE: usize = Self::TMValueType::MAX_BYTE_SIZE;
+    pub const trait InternalChellDefinition: crate::ChellDefinition {
+        type ChellValueType: crate::ChellValue;
+        const MAX_BYTE_SIZE: usize = Self::ChellValueType::MAX_BYTE_SIZE;
         const ID: u16;
     }
 }
@@ -64,7 +79,7 @@ pub trait Beacon {
     type Timestamp;
     fn insert_slice(
         &mut self,
-        telemetry_definition: &dyn TelemetryDefinition,
+        chell_definition: &dyn ChellDefinition,
         bytes: &[u8],
     ) -> Result<(), BeaconOperationError>;
     fn from_bytes(

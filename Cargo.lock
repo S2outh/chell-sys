@@ -3,6 +3,27 @@
 version = 4
 
 [[package]]
+name = "chell"
+version = "5.0.0"
+dependencies = [
+ "chell-macros",
+ "serde",
+ "serde_cbor",
+]
+
+[[package]]
+name = "chell-macros"
+version = "0.1.0"
+dependencies = [
+ "heck",
+ "proc-macro2",
+ "quote",
+ "serde",
+ "serde_json",
+ "syn",
+]
+
+[[package]]
 name = "half"
 version = "1.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -106,27 +127,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "unicode-ident",
-]
-
-[[package]]
-name = "tmtc-system"
-version = "4.8.3"
-dependencies = [
- "serde",
- "serde_cbor",
- "tmtc-system-macros",
-]
-
-[[package]]
-name = "tmtc-system-macros"
-version = "0.1.0"
-dependencies = [
- "heck",
- "proc-macro2",
- "quote",
- "serde",
- "serde_json",
- "syn",
 ]
 
 [[package]]

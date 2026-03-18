@@ -23,16 +23,16 @@ fn impl_struct(type_name: syn::Ident, tm_value_struct: syn::DataStruct) -> Token
     });
     let struct_types = tm_value_struct.fields.iter().map(|f| &f.ty);
     quote! {
-        impl TMValue for #type_name {
-            const MAX_BYTE_SIZE: usize = #(<#struct_types as TMValue>::MAX_BYTE_SIZE)+*;
-            fn read(bytes: &[u8]) -> Result<(usize, Self), TMValueError> {
+        impl ChellValue for #type_name {
+            const MAX_BYTE_SIZE: usize = #(<#struct_types as ChellValue>::MAX_BYTE_SIZE)+*;
+            fn read(bytes: &[u8]) -> Result<(usize, Self), ChellValueError> {
                 let mut pos = 0;
                 let value = Self {
                     #(#struct_type_parsers),*
                 };
                 Ok((pos, value))
             }
-            fn write(&self, mem: &mut [u8]) -> Result<usize, TMValueError> {
+            fn write(&self, mem: &mut [u8]) -> Result<usize, ChellValueError> {
                 let mut pos = 0;
                 #(#struct_byte_parsers)*
                 Ok(pos)
@@ -85,7 +85,7 @@ fn impl_enum(type_name: syn::Ident, tm_value_enum: syn::DataEnum) -> TokenStream
                 }
             }
             syn::Fields::Named(_) => {
-                unimplemented!("enums with named fields are currently not supported as TMValue")
+                unimplemented!("enums with named fields are currently not supported as ChellValue")
             }
         }
     });
@@ -116,26 +116,26 @@ fn impl_enum(type_name: syn::Ident, tm_value_enum: syn::DataEnum) -> TokenStream
                 }
             }
             syn::Fields::Named(_) => {
-                unimplemented!("enums with named fields are currently not supported as TMValue")
+                unimplemented!("enums with named fields are currently not supported as ChellValue")
             }
         }
     });
     quote! {
-        impl TMValue for #type_name {
+        impl ChellValue for #type_name {
             const MAX_BYTE_SIZE: usize = {
                 let mut m = 0;
                 #(#enum_variant_size_cmp)*
                 m
             };
-            fn read(bytes: &[u8]) -> Result<(usize, Self), TMValueError> {
+            fn read(bytes: &[u8]) -> Result<(usize, Self), ChellValueError> {
                 let mut pos = 1;
                 let value = match bytes[0] {
                     #(#enum_variant_parsers)*
-                    _ => return Err(TMValueError::BadEnumVariant)
+                    _ => return Err(ChellValueError::BadEnumVariant)
                 };
                 Ok((pos, value))
             }
-            fn write(&self, mem: &mut [u8]) -> Result<usize, TMValueError> {
+            fn write(&self, mem: &mut [u8]) -> Result<usize, ChellValueError> {
                 let mut pos = 1;
                 match self {
                     #(#enum_byte_parsers)*

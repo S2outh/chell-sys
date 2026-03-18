@@ -1,14 +1,14 @@
 #![feature(const_trait_impl)]
 #![feature(const_cmp)]
-use tmtc_system::*;
+use chell::*;
 
-#[derive(TMValue, Default, Clone, Copy)]
+#[derive(ChellValue, Default, Clone, Copy)]
 #[cfg_attr(feature = "ground", derive(serde::Serialize))]
 pub struct TestValue {
     val: u32,
 }
 
-#[derive(TMValue, Default, Clone, Copy)]
+#[derive(ChellValue, Default, Clone, Copy)]
 #[cfg_attr(feature = "ground", derive(serde::Serialize))]
 pub struct TestVector {
     x: i16,
@@ -16,18 +16,18 @@ pub struct TestVector {
     z: TestValue,
 }
 
-#[telemetry_definition(id = 0)]
+#[chell_definition(id = 0)]
 mod telemetry {
-    #[tmv(i64)]
+    #[chv(i64)]
     struct Timestamp;
-    #[tmv(u32)]
-    struct FirstTMValue;
-    #[tmv(crate::TestValue)]
-    struct SecondTMValue;
-    #[tmm(id = 100)]
+    #[chv(u32)]
+    struct FirstChellValue;
+    #[chv(crate::TestValue)]
+    struct SecondChellValue;
+    #[chm(id = 100)]
     mod some_other_mod {
-        #[tmv(crate::TestVector)]
-        struct ThirdTMValue;
+        #[chv(crate::TestVector)]
+        struct ThirdChellValue;
     }
 }
 
@@ -39,13 +39,17 @@ beacon!(
     crate::telemetry,
     crate::telemetry::Timestamp,
     id = 0,
-    values(FirstTMValue, SecondTMValue, some_other_mod::ThirdTMValue)
+    values(
+        FirstChellValue,
+        SecondChellValue,
+        some_other_mod::ThirdChellValue
+    )
 );
 
 macro_rules! to_bytes {
-    ($type: ty, $tm_value:ident) => {{
+    ($type: ty, $chell_value:ident) => {{
         let mut bytes = [0u8; <$type>::MAX_BYTE_SIZE];
-        $tm_value.write(&mut bytes).unwrap();
+        $chell_value.write(&mut bytes).unwrap();
         bytes
     }};
 }
@@ -77,9 +81,9 @@ fn beacon_creation() {
         z: TestValue { val: 1 },
     };
 
-    beacon.first_tm_value = Some(first_value);
-    beacon.second_tm_value = Some(second_value);
-    beacon.some_other_mod_third_tm_value = Some(third_value);
+    beacon.first_chell_value = Some(first_value);
+    beacon.second_chell_value = Some(second_value);
+    beacon.some_other_mod_third_chell_value = Some(third_value);
 
     let sizes = [3, 1, 8, 4, (4), (2 + 4 + 4)];
     assert_eq!(beacon.to_bytes(&mut crc_ccitt).len(), sizes.iter().sum());
@@ -97,9 +101,9 @@ fn beacon_insertion() {
         z: TestValue { val: 1 },
     };
 
-    beacon.first_tm_value = Some(first_value);
-    beacon.second_tm_value = Some(second_value);
-    beacon.some_other_mod_third_tm_value = Some(third_value);
+    beacon.first_chell_value = Some(first_value);
+    beacon.second_chell_value = Some(second_value);
+    beacon.some_other_mod_third_chell_value = Some(third_value);
 
     let bytes = beacon.to_bytes(&mut crc_ccitt);
     let crc = crc_ccitt(&bytes[3..]);
@@ -145,9 +149,9 @@ fn beacon_insertion_id() {
         )
         .unwrap();
 
-    beacon.first_tm_value = Some(first_value);
-    beacon.second_tm_value = Some(second_value);
-    beacon.some_other_mod_third_tm_value = Some(third_value);
+    beacon.first_chell_value = Some(first_value);
+    beacon.second_chell_value = Some(second_value);
+    beacon.some_other_mod_third_chell_value = Some(third_value);
 
     assert_eq!(
         id_beacon.to_bytes(&mut crc_ccitt),
@@ -170,26 +174,26 @@ fn beacon_insertion_address() {
 
     address_beacon
         .insert_slice(
-            telemetry::from_address("telemetry.first_tm_value").unwrap(),
+            telemetry::from_address("telemetry.first_chell_value").unwrap(),
             &to_bytes!(u32, first_value),
         )
         .unwrap();
     address_beacon
         .insert_slice(
-            telemetry::from_address("telemetry.second_tm_value").unwrap(),
+            telemetry::from_address("telemetry.second_chell_value").unwrap(),
             &to_bytes!(TestValue, second_value),
         )
         .unwrap();
     address_beacon
         .insert_slice(
-            telemetry::from_address("telemetry.some_other_mod.third_tm_value").unwrap(),
+            telemetry::from_address("telemetry.some_other_mod.third_chell_value").unwrap(),
             &to_bytes!(TestVector, third_value),
         )
         .unwrap();
 
-    beacon.first_tm_value = Some(first_value);
-    beacon.second_tm_value = Some(second_value);
-    beacon.some_other_mod_third_tm_value = Some(third_value);
+    beacon.first_chell_value = Some(first_value);
+    beacon.second_chell_value = Some(second_value);
+    beacon.some_other_mod_third_chell_value = Some(third_value);
 
     assert_eq!(
         address_beacon.to_bytes(&mut crc_ccitt),

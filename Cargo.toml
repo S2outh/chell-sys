@@ -1,13 +1,13 @@
 [package]
-name = "tmtc-system"
-version = "4.8.3"
+name = "chell"
+version = "5.0.0"
 edition = "2024"
 
 [features]
 ground = ["dep:serde", "macros/ground"]
 
 [dependencies]
-macros = { package = "tmtc-system-macros", path = "./macros/" }
+macros = { package = "chell-macros", path = "./macros/" }
 #heapless = { version = "0.9", default-features = false }
 serde = { version = "1.0.228", default-features = false, features = ["derive"], optional = true }
 
