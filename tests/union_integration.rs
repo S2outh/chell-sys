@@ -1,6 +1,6 @@
 #![feature(const_trait_impl)]
 #![feature(const_cmp)]
-use chell::*;
+use chell::{_internal::InternalChellDefinition, *};
 
 #[cfg(feature = "ground")]
 extern crate alloc;
@@ -40,8 +40,21 @@ mod telemetry {
     }
 }
 
-type PartialTestContainer = fd_compat_chell_container!(telemetry::some_other_mod);
-type FullTestContainer = fd_compat_chell_container!(telemetry);
+type ValueTestContainer = fd_compat_chell_union!(telemetry::OptionTest);
+type PartialTestContainer = fd_compat_chell_union!(telemetry::some_other_mod);
+type FullTestContainer = fd_compat_chell_union!(telemetry);
+
+#[test]
+fn value_container_creation() {
+    assert_eq!(telemetry::OptionTest::MAX_BYTE_SIZE, 5);
+
+    let container = ValueTestContainer::new(&telemetry::OptionTest, &Some(22)).unwrap();
+    assert_eq!(container.id(), 2);
+
+    assert_eq!(container.bytes().len(), 5);
+    assert_eq!(container.bytes()[0], 1);
+    assert_eq!(container.bytes()[1..5], 22i32.to_le_bytes());
+}
 
 #[test]
 fn partial_container_creation() {

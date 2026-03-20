@@ -1,9 +1,9 @@
 use crate::{ChellDefinition, ChellValue};
 
 #[macro_export]
-macro_rules! fd_compat_chell_container {
+macro_rules! fd_compat_chell_union {
     ($($def:tt)+) => {
-        $crate::ChellContainer<{
+        $crate::ChellUnion<{
             use $crate::_internal::InternalChellDefinition;
             match $crate::ceil_to_fd_compat($($def)+ :: MAX_BYTE_SIZE) {
                 Ok(v) => v,
@@ -30,12 +30,12 @@ pub const fn ceil_to_fd_compat(len: usize) -> Result<usize, UnsupportedValue> {
 pub struct UnsupportedValue;
 
 /// This is a generic wrapper to hold ChellValues as bytes for transfer via fdcan
-pub struct ChellContainer<const N: usize> {
+pub struct ChellUnion<const N: usize> {
     id: u16,
     storage: [u8; N],
     len: usize,
 }
-impl<const N: usize> ChellContainer<N> {
+impl<const N: usize> ChellUnion<N> {
     pub fn new(
         definition: &dyn ChellDefinition,
         value: &impl ChellValue,

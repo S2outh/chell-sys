@@ -169,6 +169,11 @@ fn generate_struct(
                 fn address(&self) -> &str { #address }
                 fn as_any(&self) -> &dyn Any { self }
             }
+            impl #def {
+                fn equals(&self, other: &dyn ChellDefinition) -> bool {
+                    self.type_id() == other.type_id()
+                }
+            }
             #serializer_func
         },
         quote! {

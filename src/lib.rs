@@ -5,7 +5,7 @@
 extern crate alloc;
 
 mod bitfield;
-mod chell_container;
+mod chell_union;
 mod chell_value;
 
 use core::any::Any;
@@ -20,9 +20,9 @@ pub use chell_value::ChellValue;
 pub use chell_value::ChellValueError;
 
 // container reexports
-pub use chell_container::ChellContainer;
-pub use chell_container::UnsupportedValue;
-pub use chell_container::ceil_to_fd_compat;
+pub use chell_union::ChellUnion;
+pub use chell_union::UnsupportedValue;
+pub use chell_union::ceil_to_fd_compat;
 
 #[macro_export]
 macro_rules! match_value {
