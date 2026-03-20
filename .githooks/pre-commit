@@ -1,0 +1,10 @@
+#!/bin/sh
+set -eu
+
+echo "Running cargo test..."
+cargo test --all-features
+
+echo "Running cargo fmt..."
+cargo fmt --all --check
+
+echo "Pre-commit checks passed."

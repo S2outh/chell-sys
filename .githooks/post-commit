@@ -1,0 +1,60 @@
+#!/bin/sh
+set -eu
+
+if [[ -n "${GUARD:-}" ]]; then
+  exit 0
+fi
+   
+export GUARD=1
+
+MSG=$(git log -1 --pretty=%s)
+
+CARGO_TOML="Cargo.toml"
+CARGO_LOCK="Cargo.lock"
+
+MACRO_CARGO_TOML="macros/Cargo.toml"
+MACRO_CARGO_LOCK="macros/Cargo.lock"
+
+[ -f "$CARGO_TOML" ] || exit 1
+
+# Extract current version
+VERSION=$(sed -nE 's/^version\s*=\s*"([0-9]+\.[0-9]+\.[0-9]+)".*/\1/p' "$CARGO_TOML")
+
+IFS=. read MAJOR MINOR PATCH <<EOF
+$VERSION
+EOF
+
+bump="none"
+
+echo "$MSG" | grep -qi '^breaking:' && bump="major"
+echo "$MSG" | grep -qi '^feat:' && bump="minor"
+echo "$MSG" | grep -qiE '^fix:' && bump="patch"
+
+case "$bump" in
+  major)
+    MAJOR=$((MAJOR + 1)); MINOR=0; PATCH=0 ;;
+  minor)
+    MINOR=$((MINOR + 1)); PATCH=0 ;;
+  patch)
+    PATCH=$((PATCH + 1)) ;;
+  none)
+    exit 1 ;;
+esac
+
+NEW_VERSION="$MAJOR.$MINOR.$PATCH"
+
+sed -i.bak -E "s/^version\s*=\s*\"$VERSION\"/version = \"$NEW_VERSION\"/" "$CARGO_TOML"
+rm -f "$CARGO_TOML.bak"
+
+sed -i.bak -E "s/^version\s*=\s*\"$VERSION\"/version = \"$NEW_VERSION\"/" "$MACRO_CARGO_TOML"
+rm -f "$MACRO_CARGO_TOML.bak"
+
+echo "bumped version to $NEW_VERSION ($bump)"
+cargo check
+
+echo "Re-staging formatted files..."
+git add $CARGO_TOML
+git add $CARGO_LOCK
+git add $MACRO_CARGO_TOML
+git add $MACRO_CARGO_LOCK
+git commit --amend --no-edit --no-verify

@@ -1,0 +1,14 @@
+#!/bin/sh
+set -eu
+
+MSG_FILE="$1"
+
+# Read title (first line)
+TITLE="$(sed -n '1p' "$MSG_FILE")"
+
+# Check title
+if ! echo "$TITLE" | grep -qE '^(feat|fix|breaking)\b'; then
+  echo "❌ Commit title must start with: feat, fix, or breaking"
+  echo "   Found: $TITLE"
+  exit 1
+fi
