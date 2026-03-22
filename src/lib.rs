@@ -33,7 +33,7 @@ macro_rules! match_value {
         $(if any.is::<$t>() {
             $body
         })else*
-    }};
+    }}
 }
 
 pub const trait ChellDefinition: Any {

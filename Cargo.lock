@@ -4,7 +4,7 @@ version = 4
 
 [[package]]
 name = "chell"
-version = "5.1.1"
+version = "5.1.2"
 dependencies = [
  "chell-macros",
  "serde",
@@ -13,7 +13,7 @@ dependencies = [
 
 [[package]]
 name = "chell-macros"
-version = "5.1.1"
+version = "5.1.2"
 dependencies = [
  "heck",
  "proc-macro2",
