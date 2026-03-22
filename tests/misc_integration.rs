@@ -42,3 +42,13 @@ fn test_match() {
         telemetry::FirstChellValue => panic!(),
     });
 }
+
+#[test]
+fn test_match_default() {
+    let v: &dyn ChellDefinition = &telemetry::Timestamp;
+    match_value!(v, {
+        telemetry::Timestamp => (),
+        telemetry::FirstChellValue => panic!(),
+        => panic!()
+    });
+}

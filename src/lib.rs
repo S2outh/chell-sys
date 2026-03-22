@@ -28,11 +28,15 @@ pub use chell_union::ceil_to_fd_compat;
 macro_rules! match_value {
     ($value:expr, {
         $($t:ty => $body:expr,)*
+        $(=> $def:expr)?
     }) => {{
         let any = $value.as_any();
         $(if any.is::<$t>() {
             $body
         })else*
+        $(else {
+            $def
+        })?
     }}
 }
 
