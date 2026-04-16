@@ -15,39 +15,45 @@ pub trait ChellValue {
 
 #[cfg(feature = "ground")]
 pub mod ground {
-    use crate::ChellDefinition;
-    use core::fmt::Debug;
-    // generic ground serializer function wrapper
-    pub trait Serializer {
-        type Error: Debug;
-        fn serialize_value<V: serde::Serialize>(
-            &self,
-            value: &V,
-        ) -> Result<alloc::vec::Vec<u8>, Self::Error>;
-    }
+    use crate::{ChellDefinition, ChellValueError};
+    use serde::ser::SerializeStruct;
     pub trait SerializableChellValue<DEF>: super::ChellValue + serde::Serialize
     where
         DEF: ChellDefinition,
     {
-        fn serialize_ground<T, S>(
+        fn serialize_ground(
             self,
             _def: &DEF,
-            timestamp: T,
-            serializer: &S,
-        ) -> Result<alloc::vec::Vec<(&'static str, alloc::vec::Vec<u8>)>, S::Error>
-        where
-            T: serde::Serialize + Clone + Copy,
-            S: Serializer;
+            timestamp: &dyn erased_serde::Serialize,
+            serializer: &dyn Fn(
+                &dyn erased_serde::Serialize,
+            ) -> Result<alloc::vec::Vec<u8>, erased_serde::Error>,
+        ) -> Result<alloc::vec::Vec<(&'static str, alloc::vec::Vec<u8>)>, erased_serde::Error>;
     }
-    #[derive(serde::Serialize)]
-    pub struct GroundTelemetry<T: serde::Serialize, V: serde::Serialize> {
-        timestamp: T,
-        value: V,
+    pub struct GroundTelemetry<'a> {
+        timestamp: &'a dyn erased_serde::Serialize,
+        value: &'a dyn erased_serde::Serialize,
     }
-    impl<T: serde::Serialize, V: serde::Serialize> GroundTelemetry<T, V> {
-        pub fn new(timestamp: T, value: V) -> Self {
+    impl<'a> GroundTelemetry<'a> {
+        pub fn new(
+            timestamp: &'a dyn erased_serde::Serialize,
+            value: &'a dyn erased_serde::Serialize,
+        ) -> Self {
             Self { timestamp, value }
         }
+    }
+    impl<'a> serde::Serialize for GroundTelemetry<'a> {
+        fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+            let mut s = serializer.serialize_struct("GroundTelemetry", 2)?;
+            s.serialize_field("timestamp", self.timestamp)?;
+            s.serialize_field("value", self.value)?;
+            s.end()
+        }
+    }
+    #[derive(Debug)]
+    pub enum ReserializeError {
+        ChellValueError(ChellValueError),
+        SerdeError(erased_serde::Error),
     }
 }
 

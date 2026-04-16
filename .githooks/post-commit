@@ -50,6 +50,9 @@ sed -i.bak -E "s/^version\s*=\s*\"$VERSION\"/version = \"$NEW_VERSION\"/" "$MACR
 rm -f "$MACRO_CARGO_TOML.bak"
 
 echo "bumped version to $NEW_VERSION ($bump)"
+cd macros
+cargo check
+cd ..
 cargo check
 
 echo "Re-staging formatted files..."

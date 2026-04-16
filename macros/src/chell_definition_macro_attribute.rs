@@ -133,25 +133,45 @@ fn generate_struct(
     let serializer_func = if cfg!(feature = "ground") {
         quote! {
             impl SerializableChellValue<#def> for #tmty {
-                fn serialize_ground<T, S>(self, _def: &#def, timestamp: T, serializer: &S)
-                    -> Result<alloc::vec::Vec<(&'static str, alloc::vec::Vec<u8>)>, S::Error>
-                    where T: serde::Serialize + Clone + Copy,
-                          S: Serializer
-                {
-                    let mut serialized_pairs = alloc::vec::Vec::new();
+                fn serialize_ground(self,
+                    _def: &#def,
+                    timestamp: &dyn Serialize,
+                    serializer: &dyn Fn(&dyn Serialize) -> Result<Vec<u8>, Error>
+                ) -> Result<Vec<(&'static str, Vec<u8>)>, Error> {
+                    let mut serialized_pairs = Vec::new();
                     #({
-                        let nats_value = GroundTelemetry::new(timestamp, (#funcs)(&self));
-                        let bytes = serializer.serialize_value(&nats_value)?;
+                        let converted_value = (#funcs)(&self);
+                        let nats_value = GroundTelemetry::new(timestamp, &converted_value);
+                        let bytes = serializer(&nats_value)?;
                         serialized_pairs.push((concat!(#address, ".", stringify!(#address_endings)), bytes));
                     })*
 
-                    let raw_nats_value = GroundTelemetry::new(timestamp, self);
-                    let raw_bytes = serializer.serialize_value(&raw_nats_value)?;
+                    let raw_nats_value = GroundTelemetry::new(timestamp, &self);
+                    let raw_bytes = serializer(&raw_nats_value)?;
                     serialized_pairs.push((#address, raw_bytes));
 
                     Ok(serialized_pairs)
                 }
             }
+        }
+    } else {
+        quote! {}
+    };
+    let reserializer_func = if cfg!(feature = "ground") {
+        quote! {
+            fn reserialize(&self,
+                bytes: &[u8],
+                timestamp: &dyn Serialize,
+                serializer: &dyn Fn(&dyn Serialize) -> Result<Vec<u8>, Error>
+            ) -> Result<Vec<(&'static str, Vec<u8>)>, ReserializeError> {
+                let (_, value): (_, #tmty) = <#tmty>::read(bytes)
+                    .map_err(|e| ReserializeError::ChellValueError(e))?;
+                let serialized_pairs = value.serialize_ground(&self, timestamp, serializer)
+                    .map_err(|e| ReserializeError::SerdeError(e))?;
+
+                Ok(serialized_pairs)
+            }
+
         }
     } else {
         quote! {}
@@ -164,10 +184,11 @@ fn generate_struct(
                 type ChellValueType = #tmty;
                 const ID: u16 = #tm_id;
             }
-            impl const ChellDefinition for #def {
+            impl ChellDefinition for #def {
                 fn id(&self) -> u16 { Self::ID }
                 fn address(&self) -> &str { #address }
                 fn as_any(&self) -> &dyn Any { self }
+                #reserializer_func
             }
             impl #def {
                 fn equals(&self, other: &dyn ChellDefinition) -> bool {
@@ -323,11 +344,21 @@ pub fn impl_macro(ast: syn::Item, mut id: u16, chell_address: syn::Path) -> Toke
 
     let str_doc = serde_json::to_string(&doc).unwrap_or(String::new());
 
+    let serializer_imports = if cfg!(feature = "ground") {
+        quote! {
+            use alloc::vec::Vec;
+            use erased_serde::{Serialize, Error};
+        }
+    } else {
+        quote! {}
+    };
+
     quote! {
         pub mod #root_mod_ident {
             pub const __TOOLING_METADATA: &str = #str_doc;
-            use #chell_address::{ChellDefinition, _internal::*, NotFoundError};
+            use #chell_address::{*, _internal::*};
             use core::any::Any;
+            #serializer_imports
             pub const fn from_id(id: u16) -> Result<&'static dyn ChellDefinition, NotFoundError> {
                 match id {
                     #id_getters

@@ -3,6 +3,8 @@
 #![cfg(feature = "ground")]
 
 use chell::*;
+
+use crate::telemetry::{FirstChellValue, SecondChellValue, some_other_mod::ThirdChellValue};
 extern crate alloc;
 
 #[derive(ChellValue, Default, Clone, Copy, serde::Serialize)]
@@ -48,19 +50,17 @@ beacon!(
     )
 );
 
-struct CborSerializer;
-impl ground::Serializer for CborSerializer {
-    type Error = serde_cbor::Error;
-    fn serialize_value<T: serde::Serialize>(
-        &self,
-        value: &T,
-    ) -> Result<std::vec::Vec<u8>, Self::Error> {
-        serde_cbor::to_vec(value)
-    }
+fn serializer_func(
+    value: &dyn erased_serde::Serialize,
+) -> Result<alloc::vec::Vec<u8>, erased_serde::Error> {
+    let mut buffer = alloc::vec::Vec::new();
+    let mut serializer = serde_cbor::Serializer::new(&mut buffer);
+    value.erased_serialize(&mut <dyn erased_serde::Serializer>::erase(&mut serializer))?;
+    Ok(buffer)
 }
 
 #[test]
-fn tm_serialize() {
+fn beacon_serialize() {
     let mut beacon = test_beacon::TestBeacon::new();
 
     let first_value = 1234u32;
@@ -82,7 +82,52 @@ fn tm_serialize() {
     beacon.second_chell_value = Some(second_value);
     beacon.some_other_mod_third_chell_value = Some(third_value);
 
-    let serialized_pairs = beacon.serialize(&CborSerializer).unwrap();
+    let serialized_pairs = beacon.serialize(&serializer_func).unwrap();
+    for (ser, address) in serialized_pairs.iter().zip(addresses) {
+        assert_eq!(ser.0, address);
+    }
+}
+
+macro_rules! to_bytes {
+    ($type: ty, $chell_value:ident) => {{
+        let mut bytes = [0u8; <$type>::MAX_BYTE_SIZE];
+        $chell_value.write(&mut bytes).unwrap();
+        bytes
+    }};
+}
+#[test]
+fn tm_serialize() {
+    let first_value = 1234u32;
+    let second_value = TestValue { val: 3 };
+    let third_value = TestVector {
+        x: 3,
+        y: 3.3,
+        z: TestValue { val: 1 },
+    };
+    let addresses = vec![
+        "telemetry.first_chell_value.c",
+        "telemetry.first_chell_value",
+        "telemetry.second_chell_value.other",
+        "telemetry.second_chell_value",
+        "telemetry.some_other_mod.third_chell_value",
+    ];
+
+    let mut serialized_pairs = Vec::new();
+    serialized_pairs.append(
+        &mut FirstChellValue
+            .reserialize(&to_bytes!(u32, first_value), &12, &serializer_func)
+            .unwrap(),
+    );
+    serialized_pairs.append(
+        &mut SecondChellValue
+            .reserialize(&to_bytes!(TestValue, second_value), &12, &serializer_func)
+            .unwrap(),
+    );
+    serialized_pairs.append(
+        &mut ThirdChellValue
+            .reserialize(&to_bytes!(TestVector, third_value), &12, &serializer_func)
+            .unwrap(),
+    );
     for (ser, address) in serialized_pairs.iter().zip(addresses) {
         assert_eq!(ser.0, address);
     }

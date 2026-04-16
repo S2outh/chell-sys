@@ -81,14 +81,16 @@ pub fn impl_macro(args: Punctuated<Meta, Token![,]>) -> TokenStream {
     let serializers = names.iter().zip(paths.clone()).map(|(name, path)| {
         quote! {
             if let Some(value) = self.#name {
-                let mut serialized = value.serialize_ground(&#path, timestamp, serializer)?;
+                let mut serialized = value.serialize_ground(&#path, &timestamp, serializer)?;
                 serialized_values.append(&mut serialized);
             }
         }
     });
     let serializer_func = if cfg!(feature = "ground") {
         quote! {
-            pub fn serialize<S: Serializer>(&self, serializer: &S) -> Result<Vec<(&'static str, Vec<u8>)>, S::Error> {
+            pub fn serialize(&self,
+                serializer: &dyn Fn(&dyn Serialize) -> Result<Vec<u8>, Error>
+            ) -> Result<Vec<(&'static str, Vec<u8>)>, Error> {
                 let mut serialized_values = Vec::new();
                 let timestamp = self.timestamp;
                 #(#serializers)*
@@ -101,6 +103,7 @@ pub fn impl_macro(args: Punctuated<Meta, Token![,]>) -> TokenStream {
     let serializer_imports = if cfg!(feature = "ground") {
         quote! {
             use alloc::vec::Vec;
+            use erased_serde::{Serialize, Error};
         }
     } else {
         quote! {}
