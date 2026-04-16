@@ -166,7 +166,7 @@ fn generate_struct(
             ) -> Result<Vec<(&'static str, Vec<u8>)>, ReserializeError> {
                 let (_, value): (_, #tmty) = <#tmty>::read(bytes)
                     .map_err(|e| ReserializeError::ChellValueError(e))?;
-                let serialized_pairs = value.serialize_ground(&self, timestamp, serializer)
+                let serialized_pairs = value.serialize_ground(self, timestamp, serializer)
                     .map_err(|e| ReserializeError::SerdeError(e))?;
 
                 Ok(serialized_pairs)
