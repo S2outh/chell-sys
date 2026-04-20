@@ -106,6 +106,9 @@ impl<const N: usize, T: ChellValue> ChellValue for [T; N] {
             let mut pos = 0;
             let mut arr: Self = core::mem::zeroed();
             for i in 0..N {
+                if pos >= bytes.len() {
+                    return Err(ChellValueError::OutOfMemory);
+                }
                 let (len, value) = T::read(&bytes[pos..])?;
                 pos += len;
                 arr[i] = value;
@@ -116,6 +119,9 @@ impl<const N: usize, T: ChellValue> ChellValue for [T; N] {
     fn write(&self, mem: &mut [u8]) -> Result<usize, ChellValueError> {
         let mut pos = 0;
         for i in 0..N {
+            if pos >= mem.len() {
+                return Err(ChellValueError::OutOfMemory);
+            }
             pos += self[i].write(&mut mem[pos..])?;
         }
         Ok(pos)
@@ -149,7 +155,10 @@ impl<T: ChellValue> ChellValue for Option<T> {
     const MAX_BYTE_SIZE: usize = 1 + T::MAX_BYTE_SIZE;
     fn read(bytes: &[u8]) -> Result<(usize, Self), ChellValueError> {
         let mut pos = 1;
-        match bytes[0] {
+        let Some(enum_byte) = bytes.get(0) else {
+            return Err(ChellValueError::OutOfMemory);
+        };
+        match enum_byte {
             0u8 => Ok((pos, None)),
             1u8 => {
                 let (len, value) = T::read(&bytes[pos..])?;
@@ -161,6 +170,9 @@ impl<T: ChellValue> ChellValue for Option<T> {
     }
     fn write(&self, mem: &mut [u8]) -> Result<usize, ChellValueError> {
         let mut pos = 1;
+        if mem.len() < 1 {
+            return Err(ChellValueError::OutOfMemory);
+        }
         match self {
             None => {
                 mem[0] = 0u8;
