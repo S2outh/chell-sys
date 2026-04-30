@@ -36,6 +36,7 @@ pub struct ChellUnion<const N: usize> {
     len: usize,
 }
 impl<const N: usize> ChellUnion<N> {
+    pub const SIZE: usize = N;
     pub fn new(
         definition: &dyn ChellDefinition,
         value: &impl ChellValue,

@@ -47,6 +47,7 @@ type FullTestContainer = fd_compat_chell_union!(telemetry);
 #[test]
 fn value_container_creation() {
     assert_eq!(telemetry::OptionTest::MAX_BYTE_SIZE, 5);
+    assert_eq!(ValueTestContainer::SIZE, 5);
 
     let container = ValueTestContainer::new(&telemetry::OptionTest, &Some(22)).unwrap();
     assert_eq!(container.id(), 2);
@@ -59,6 +60,7 @@ fn value_container_creation() {
 #[test]
 fn partial_container_creation() {
     assert_eq!(telemetry::some_other_mod::MAX_BYTE_SIZE, 8);
+    assert_eq!(PartialTestContainer::SIZE, 8);
 
     let container =
         PartialTestContainer::new(&telemetry::some_other_mod::FourthChellValue, &42).unwrap();
@@ -71,6 +73,7 @@ fn partial_container_creation() {
 #[test]
 fn full_container_creation() {
     assert_eq!(telemetry::MAX_BYTE_SIZE, 10);
+    assert_eq!(FullTestContainer::SIZE, 12);
 
     let container = FullTestContainer::new(
         &telemetry::SecondChellValue,
