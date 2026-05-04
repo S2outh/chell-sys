@@ -128,7 +128,7 @@ pub fn impl_macro(args: Punctuated<Meta, Token![,]>) -> TokenStream {
                     + <#timestamp_type as ChellValue>::MAX_BYTE_SIZE
                     + #(<#itd_paths::ChellValueType as ChellValue>::MAX_BYTE_SIZE)+*;
 
-                pub fn new() -> Self {
+                pub const fn new() -> Self {
                     Self {
                         storage: [0u8; Self::BYTE_SIZE],
                         timestamp: #timestamp_type::default(),
