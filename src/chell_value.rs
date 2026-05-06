@@ -98,6 +98,20 @@ primitive_value!(isize);
 primitive_value!(f32);
 primitive_value!(f64);
 
+// # Empty type
+impl ChellValue for () {
+    const MAX_BYTE_SIZE: usize = 0;
+    fn read(_bytes: &[u8]) -> Result<(usize, Self), ChellValueError>
+    where
+        Self: Sized,
+    {
+        Ok((0, ()))
+    }
+    fn write(&self, _mem: &mut [u8]) -> Result<usize, ChellValueError> {
+        Ok(0)
+    }
+}
+
 // # Arrays
 impl<const N: usize, T: ChellValue> ChellValue for [T; N] {
     const MAX_BYTE_SIZE: usize = N * T::MAX_BYTE_SIZE;
