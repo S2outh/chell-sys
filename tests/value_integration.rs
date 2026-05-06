@@ -5,6 +5,9 @@ use chell::*;
 extern crate alloc;
 
 #[derive(ChellValue, Default, PartialEq, Debug, Clone, Copy)]
+pub struct AnonValue(u8);
+
+#[derive(ChellValue, Default, PartialEq, Debug, Clone, Copy)]
 pub struct TestValue {
     val: Option<u32>,
 }
@@ -56,15 +59,19 @@ fn chell_value_structs() {
         y: 3.3,
         z: TestValue { val: Some(1) },
     };
+    let third_value = AnonValue(3);
 
     let first_value_bytes = to_bytes!(TestValue, first_value);
     let second_value_bytes = to_bytes!(TestVector, second_value);
+    let third_value_bytes = to_bytes!(AnonValue, third_value);
 
     let first_value_copy = TestValue::read(&first_value_bytes).unwrap().1;
     let second_value_copy = TestVector::read(&second_value_bytes).unwrap().1;
+    let third_value_copy = AnonValue::read(&third_value_bytes).unwrap().1;
 
     assert_eq!(first_value, first_value_copy);
     assert_eq!(second_value, second_value_copy);
+    assert_eq!(third_value, third_value_copy);
 }
 
 #[test]

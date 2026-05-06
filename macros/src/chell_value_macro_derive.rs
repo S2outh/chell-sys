@@ -1,11 +1,15 @@
 use crate::macro_utils::parse_type_path;
 use proc_macro2::TokenStream;
-use quote::quote;
-use syn::Ident;
+use quote::{ToTokens, quote};
+use syn::{Ident, Index};
 
 fn impl_struct(type_name: syn::Ident, tm_value_struct: syn::DataStruct) -> TokenStream {
-    let struct_type_parsers = tm_value_struct.fields.iter().map(|f| {
-        let ident = &f.ident;
+    let struct_type_parsers = tm_value_struct.fields.iter().enumerate().map(|(i, f)| {
+        let ident = f
+            .ident
+            .as_ref()
+            .map(Ident::to_token_stream)
+            .unwrap_or(Index::from(i).to_token_stream());
         let ty = parse_type_path(&f.ty);
         quote! {
             #ident: {
@@ -15,8 +19,12 @@ fn impl_struct(type_name: syn::Ident, tm_value_struct: syn::DataStruct) -> Token
             }
         }
     });
-    let struct_byte_parsers = tm_value_struct.fields.iter().map(|f| {
-        let ident = &f.ident;
+    let struct_byte_parsers = tm_value_struct.fields.iter().enumerate().map(|(i, f)| {
+        let ident = f
+            .ident
+            .as_ref()
+            .map(Ident::to_token_stream)
+            .unwrap_or(Index::from(i).to_token_stream());
         quote! {
             pos += self.#ident.write(&mut mem[pos..])?;
         }
