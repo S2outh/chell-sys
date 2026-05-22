@@ -131,7 +131,7 @@ fn generate_struct(
 
     // Serializer func
     let serializer_func = if cfg!(feature = "ground") {
-        quote! {
+        Some(quote! {
             impl SerializableChellValue<#def> for #tmty {
                 fn serialize_ground(self,
                     _def: &#def,
@@ -153,12 +153,12 @@ fn generate_struct(
                     Ok(serialized_pairs)
                 }
             }
-        }
+        })
     } else {
-        quote! {}
+        None
     };
     let reserializer_func = if cfg!(feature = "ground") {
-        quote! {
+        Some(quote! {
             fn reserialize(&self,
                 bytes: &[u8],
                 timestamp: &dyn Serialize,
@@ -172,9 +172,9 @@ fn generate_struct(
                 Ok(serialized_pairs)
             }
 
-        }
+        })
     } else {
-        quote! {}
+        None
     };
     [
         quote! {
@@ -345,12 +345,12 @@ pub fn impl_macro(ast: syn::Item, mut id: u16, chell_address: syn::Path) -> Toke
     let str_doc = serde_json::to_string(&doc).unwrap_or(String::new());
 
     let serializer_imports = if cfg!(feature = "ground") {
-        quote! {
+        Some(quote! {
             use alloc::vec::Vec;
             use erased_serde::{Serialize, Error};
-        }
+        })
     } else {
-        quote! {}
+        None
     };
 
     quote! {

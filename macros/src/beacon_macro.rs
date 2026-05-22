@@ -87,7 +87,7 @@ pub fn impl_macro(args: Punctuated<Meta, Token![,]>) -> TokenStream {
         }
     });
     let serializer_func = if cfg!(feature = "ground") {
-        quote! {
+        Some(quote! {
             pub fn serialize(&self,
                 serializer: &dyn Fn(&dyn Serialize) -> Result<Vec<u8>, Error>
             ) -> Result<Vec<(&'static str, Vec<u8>)>, Error> {
@@ -96,17 +96,17 @@ pub fn impl_macro(args: Punctuated<Meta, Token![,]>) -> TokenStream {
                 #(#serializers)*
                 Ok(serialized_values)
             }
-        }
+        })
     } else {
-        quote! {}
+        None
     };
     let serializer_imports = if cfg!(feature = "ground") {
-        quote! {
+        Some(quote! {
             use alloc::vec::Vec;
             use erased_serde::{Serialize, Error};
-        }
+        })
     } else {
-        quote! {}
+        None
     };
 
     let bitfield_size: usize = (names.len() as f32 / 8.).ceil() as usize;

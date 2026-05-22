@@ -3,7 +3,7 @@ use proc_macro2::TokenStream;
 use quote::{ToTokens, quote};
 use syn::{Ident, Index};
 
-fn impl_struct(type_name: syn::Ident, tm_value_struct: syn::DataStruct) -> TokenStream {
+fn impl_struct(tm_value_struct: syn::DataStruct) -> TokenStream {
     let struct_type_parsers = tm_value_struct.fields.iter().enumerate().map(|(i, f)| {
         let ident = f
             .ident
@@ -31,25 +31,23 @@ fn impl_struct(type_name: syn::Ident, tm_value_struct: syn::DataStruct) -> Token
     });
     let struct_types = tm_value_struct.fields.iter().map(|f| &f.ty);
     quote! {
-        impl ChellValue for #type_name {
-            const MAX_BYTE_SIZE: usize = #(<#struct_types as ChellValue>::MAX_BYTE_SIZE)+*;
-            fn read(bytes: &[u8]) -> Result<(usize, Self), ChellValueError> {
-                let mut pos = 0;
-                let value = Self {
-                    #(#struct_type_parsers),*
-                };
-                Ok((pos, value))
-            }
-            fn write(&self, mem: &mut [u8]) -> Result<usize, ChellValueError> {
-                let mut pos = 0;
-                #(#struct_byte_parsers)*
-                Ok(pos)
-            }
+        const MAX_BYTE_SIZE: usize = #(<#struct_types as ChellValue>::MAX_BYTE_SIZE)+*;
+        fn read(bytes: &[u8]) -> Result<(usize, Self), ChellValueError> {
+            let mut pos = 0;
+            let value = Self {
+                #(#struct_type_parsers),*
+            };
+            Ok((pos, value))
+        }
+        fn write(&self, mem: &mut [u8]) -> Result<usize, ChellValueError> {
+            let mut pos = 0;
+            #(#struct_byte_parsers)*
+            Ok(pos)
         }
     }
 }
 
-fn impl_enum(type_name: syn::Ident, tm_value_enum: syn::DataEnum) -> TokenStream {
+fn impl_enum(tm_value_enum: syn::DataEnum) -> TokenStream {
     let enum_variant_size_cmp = tm_value_enum.variants.iter().map(|v| {
         let iter: Box<dyn Iterator<Item = _>> = match &v.fields {
             syn::Fields::Unit => Box::new(std::iter::empty()),
@@ -129,37 +127,42 @@ fn impl_enum(type_name: syn::Ident, tm_value_enum: syn::DataEnum) -> TokenStream
         }
     });
     quote! {
-        impl ChellValue for #type_name {
-            const MAX_BYTE_SIZE: usize = {
-                let mut m = 0;
-                #(#enum_variant_size_cmp)*
-                m
+        const MAX_BYTE_SIZE: usize = {
+            let mut m = 0;
+            #(#enum_variant_size_cmp)*
+            m
+        };
+        fn read(bytes: &[u8]) -> Result<(usize, Self), ChellValueError> {
+            let mut pos = 1;
+            let value = match bytes[0] {
+                #(#enum_variant_parsers)*
+                _ => return Err(ChellValueError::BadEnumVariant)
             };
-            fn read(bytes: &[u8]) -> Result<(usize, Self), ChellValueError> {
-                let mut pos = 1;
-                let value = match bytes[0] {
-                    #(#enum_variant_parsers)*
-                    _ => return Err(ChellValueError::BadEnumVariant)
-                };
-                Ok((pos, value))
+            Ok((pos, value))
+        }
+        fn write(&self, mem: &mut [u8]) -> Result<usize, ChellValueError> {
+            let mut pos = 1;
+            match self {
+                #(#enum_byte_parsers)*
             }
-            fn write(&self, mem: &mut [u8]) -> Result<usize, ChellValueError> {
-                let mut pos = 1;
-                match self {
-                    #(#enum_byte_parsers)*
-                }
-                Ok(pos)
-            }
+            Ok(pos)
         }
     }
 }
 
 pub fn impl_macro(ast: syn::DeriveInput) -> TokenStream {
     let type_name = ast.ident.clone();
+    let (impl_generics, ty_generics, where_clause) = ast.generics.split_for_impl();
 
-    match ast.data {
-        syn::Data::Struct(tm_value_struct) => impl_struct(type_name, tm_value_struct),
-        syn::Data::Enum(tm_value_enum) => impl_enum(type_name, tm_value_enum),
+    let body = match ast.data {
+        syn::Data::Struct(tm_value_struct) => impl_struct(tm_value_struct),
+        syn::Data::Enum(tm_value_enum) => impl_enum(tm_value_enum),
         syn::Data::Union(_) => unimplemented!("unions are not supported as tmvalues"),
+    };
+
+    quote! {
+        impl #impl_generics ChellValue for #type_name #ty_generics #where_clause {
+            #body
+        }
     }
 }

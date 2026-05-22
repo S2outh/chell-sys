@@ -5,9 +5,6 @@ use chell::*;
 extern crate alloc;
 
 #[derive(ChellValue, Default, PartialEq, Debug, Clone, Copy)]
-pub struct AnonValue(u8);
-
-#[derive(ChellValue, Default, PartialEq, Debug, Clone, Copy)]
 pub struct TestValue {
     val: Option<u32>,
 }
@@ -17,6 +14,14 @@ pub struct TestVector {
     x: i16,
     y: f32,
     z: TestValue,
+}
+
+#[derive(ChellValue, Default, PartialEq, Debug, Clone, Copy)]
+pub struct AnonValue(u8);
+
+#[derive(ChellValue, Default, PartialEq, Debug, Clone, Copy)]
+pub struct GenericValue<T: ChellValue> {
+    value: T,
 }
 
 #[derive(ChellValue, Default, PartialEq, Debug, Clone, Copy)]
@@ -59,19 +64,31 @@ fn chell_value_structs() {
         y: 3.3,
         z: TestValue { val: Some(1) },
     };
-    let third_value = AnonValue(3);
 
     let first_value_bytes = to_bytes!(TestValue, first_value);
     let second_value_bytes = to_bytes!(TestVector, second_value);
-    let third_value_bytes = to_bytes!(AnonValue, third_value);
 
     let first_value_copy = TestValue::read(&first_value_bytes).unwrap().1;
     let second_value_copy = TestVector::read(&second_value_bytes).unwrap().1;
-    let third_value_copy = AnonValue::read(&third_value_bytes).unwrap().1;
 
     assert_eq!(first_value, first_value_copy);
     assert_eq!(second_value, second_value_copy);
-    assert_eq!(third_value, third_value_copy);
+}
+
+#[test]
+fn chell_value_anon_structs() {
+    let value = AnonValue(3);
+    let value_bytes = to_bytes!(AnonValue, value);
+    let value_copy = AnonValue::read(&value_bytes).unwrap().1;
+    assert_eq!(value, value_copy);
+}
+
+#[test]
+fn chell_value_generics() {
+    let value = GenericValue { value: 3u32 };
+    let value_bytes = to_bytes!(GenericValue<u32>, value);
+    let value_copy = GenericValue::read(&value_bytes).unwrap().1;
+    assert_eq!(value, value_copy);
 }
 
 #[test]
