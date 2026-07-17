@@ -17,23 +17,33 @@ pub fn impl_macro(args: Punctuated<Meta, Token![,]>) -> TokenStream {
         })
         .collect();
 
+    // First parameter in beacon macro is the name
     let beacon_name = path_args_iter
         .get(0)
         .expect("args should include beacon name");
+
+    // Compute module name from beacon name
     let beacon_module_name: TokenStream = beacon_name
         .to_token_stream()
         .to_string()
         .to_snake_case()
         .parse()
         .unwrap();
+    // Second parameter should be the root path for telemetry in this beacon
+    // Since most beacons are assumed to contain ajacent telemetry values
+    // having a settable root path for them makes sense
     let root_path = path_args_iter
         .get(1)
         .expect("args should include tm definition path");
+    // Third parameter should be Timestamp type path, in practice this
+    // almost always is a u64 in telemetry::Timestamp, but Chell is intentionally
+    // very modular in this regard
     let timestamp_path = path_args_iter
         .get(2)
         .expect("args should include timestamp path");
     let timestamp_type = quote! { <#timestamp_path as InternalChellDefinition>::ChellValueType };
 
+    // Fourth parameter should be the beacon identifier, prefixed with "id =" for readability
     let Meta::NameValue(id_nv) = args_iter.next().expect("args should contain id") else {
         panic!("third arg should be id");
     };
@@ -42,6 +52,7 @@ pub fn impl_macro(args: Punctuated<Meta, Token![,]>) -> TokenStream {
     };
     let id = &id_nv.value;
 
+    // Last parameter should be a List of arguments
     let Meta::List(tm_definitions_arg) = args_iter
         .next()
         .expect("5th arg should contain tm definitions list ")
@@ -50,7 +61,7 @@ pub fn impl_macro(args: Punctuated<Meta, Token![,]>) -> TokenStream {
     };
 
     let tm_definitions: Vec<_> = tm_definitions_arg
-        .parse_args_with(Punctuated::<Path, Token![,]>::parse_separated_nonempty)
+        .parse_args_with(Punctuated::<Path, Token![,]>::parse_terminated)
         .expect("could not parse header list")
         .into_iter()
         .collect();

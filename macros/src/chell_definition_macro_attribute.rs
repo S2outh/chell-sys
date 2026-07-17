@@ -91,8 +91,8 @@ fn generate_struct(
         .intersperse(quote!(::))
         .collect();
     // Parse type of the ChellValue the struct references
-    // Increment id
     let tm_id = *id;
+    // Increment id
     *id += 1;
     // calculate string address based on module tree
     let str_base_addr: String = address
