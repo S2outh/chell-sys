@@ -1,3 +1,5 @@
+use crate::ChellDefinition;
+
 #[derive(Debug)]
 pub enum ChellValueError {
     OutOfMemory,
@@ -13,6 +15,14 @@ pub trait ChellValue {
     fn write(&self, mem: &mut [u8]) -> Result<usize, ChellValueError>;
 }
 
+pub trait ParsableChellValue<DEF>: ChellValue
+where
+    DEF: ChellDefinition,
+{
+    type Parser;
+    fn parser(self, _def: DEF) -> Self::Parser;
+}
+
 #[cfg(feature = "ground")]
 pub mod ground {
     use crate::{ChellDefinition, ChellValueError};
@@ -23,7 +33,7 @@ pub mod ground {
     {
         fn serialize_ground(
             self,
-            _def: &DEF,
+            _def: DEF,
             timestamp: &dyn erased_serde::Serialize,
             serializer: &dyn Fn(
                 &dyn erased_serde::Serialize,

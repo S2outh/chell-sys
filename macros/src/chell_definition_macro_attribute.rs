@@ -3,17 +3,33 @@ use std::iter::{once, zip};
 
 use heck::ToSnakeCase;
 use proc_macro2::TokenStream;
-use quote::{ToTokens, quote};
+use quote::{ToTokens, format_ident, quote};
 use syn::parse::{Parse, ParseStream};
+use syn::{Expr, MetaList, Path, Type};
 use syn::{Item, Meta, Token, punctuated::Punctuated};
-use syn::{MetaNameValue, Type};
 
 const CHELL_VALUE_MACRO_NAME: &str = "chv";
 const CHELL_MODULE_MACRO_NAME: &str = "chm";
 
+struct TmFunctionArgs {
+    ty: Type,
+    expr: Expr,
+}
+
+impl Parse for TmFunctionArgs {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        let ty: Type = input.parse()?;
+        input.parse::<Token![,]>()?;
+        let expr: Expr = input.parse()?;
+        Ok(Self { ty, expr })
+    }
+}
+
 struct TmValueMacroInput {
     pub ty: Type,
-    pub metas: Punctuated<MetaNameValue, Token![,]>,
+    pub paths: Vec<Path>,
+    pub types: Vec<Type>,
+    pub funcs: Vec<Expr>,
 }
 
 impl Parse for TmValueMacroInput {
@@ -25,7 +41,9 @@ impl Parse for TmValueMacroInput {
         if input.is_empty() {
             return Ok(Self {
                 ty,
-                metas: Punctuated::new(),
+                paths: Vec::new(),
+                types: Vec::new(),
+                funcs: Vec::new(),
             });
         }
 
@@ -33,9 +51,26 @@ impl Parse for TmValueMacroInput {
         input.parse::<Token![,]>()?;
 
         // Parse remaining key-value pairs
-        let metas = Punctuated::<MetaNameValue, Token![,]>::parse_terminated(input)?;
+        let metas = Punctuated::<MetaList, Token![,]>::parse_terminated(input)?;
+        let (paths, content): (Vec<_>, Vec<_>) = metas
+            .into_iter()
+            .map(|v| (v.path.clone(), v.parse_args()))
+            .unzip();
+        let content = content.into_iter().collect::<Result<Vec<_>, _>>()?;
+        let (types, funcs) = content
+            .into_iter()
+            .map(|v| {
+                let TmFunctionArgs { ty, expr } = v;
+                (ty, expr)
+            })
+            .unzip();
 
-        Ok(Self { ty, metas })
+        Ok(Self {
+            ty,
+            paths,
+            types,
+            funcs,
+        })
     }
 }
 
@@ -76,12 +111,13 @@ fn generate_struct(
         ));
 
     let tmty: Type = args.ty;
-
-    let (address_endings, funcs): (Vec<_>, Vec<_>) =
-        args.metas.into_iter().map(|v| (v.path, v.value)).unzip();
+    let paths = args.paths;
+    let types = args.types;
+    let funcs = args.funcs;
 
     // this definitions name
     let def = &v.ident;
+    let def_parser = format_ident!("{}Parser", def);
     // Parse rust address of the struct inside the telemetry module tree
     let def_addr: TokenStream = address
         .iter()
@@ -90,6 +126,7 @@ fn generate_struct(
         .map(|i| i.to_token_stream())
         .intersperse(quote!(::))
         .collect();
+
     // Parse type of the ChellValue the struct references
     let tm_id = *id;
     // Increment id
@@ -120,7 +157,7 @@ fn generate_struct(
         doc.description = description;
     }
 
-    for addr in address_endings.iter() {
+    for addr in paths.iter() {
         let full_addr = format!("{}.{}", address, &addr.to_token_stream().to_string());
         doc.sub_addresses.push(full_addr);
     }
@@ -129,25 +166,47 @@ fn generate_struct(
     let str_doc = serde_json::to_string(&doc).unwrap_or(String::new());
     docs.push(doc);
 
-    // Serializer func
+    // Parsers
+    let parser = if funcs.len() > 0 {
+        Some(quote! {
+            pub struct #def_parser(#tmty);
+            impl ParsableChellValue<#def> for #tmty {
+                type Parser = #def_parser;
+                fn parser(self, _def: #def) -> Self::Parser {
+                    #def_parser(self)
+                }
+            }
+            impl #def_parser {
+                #(
+                    pub fn #paths(&self) -> #types {
+                        (#funcs)(&self.0)
+                    }
+                )*
+            }
+        })
+    } else {
+        None
+    };
+
+    // Ground serialization funktionality
     let serializer_func = if cfg!(feature = "ground") {
         Some(quote! {
             impl SerializableChellValue<#def> for #tmty {
                 fn serialize_ground(self,
-                    _def: &#def,
+                    _def: #def,
                     timestamp: &dyn Serialize,
                     serializer: &dyn Fn(&dyn Serialize) -> Result<Vec<u8>, Error>
                 ) -> Result<Vec<(&'static str, Vec<u8>)>, Error> {
                     let mut serialized_pairs = Vec::new();
                     #({
                         let converted_value = (#funcs)(&self);
-                        let nats_value = GroundTelemetry::new(timestamp, &converted_value);
-                        let bytes = serializer(&nats_value)?;
-                        serialized_pairs.push((concat!(#address, ".", stringify!(#address_endings)), bytes));
+                        let gt_value = GroundTelemetry::new(timestamp, &converted_value);
+                        let bytes = serializer(&gt_value)?;
+                        serialized_pairs.push((concat!(#address, ".", stringify!(#paths)), bytes));
                     })*
 
-                    let raw_nats_value = GroundTelemetry::new(timestamp, &self);
-                    let raw_bytes = serializer(&raw_nats_value)?;
+                    let raw_gt_value = GroundTelemetry::new(timestamp, &self);
+                    let raw_bytes = serializer(&raw_gt_value)?;
                     serialized_pairs.push((#address, raw_bytes));
 
                     Ok(serialized_pairs)
@@ -166,7 +225,7 @@ fn generate_struct(
             ) -> Result<Vec<(&'static str, Vec<u8>)>, ReserializeError> {
                 let (_, value): (_, #tmty) = <#tmty>::read(bytes)
                     .map_err(|e| ReserializeError::ChellValueError(e))?;
-                let serialized_pairs = value.serialize_ground(self, timestamp, serializer)
+                let serialized_pairs = value.serialize_ground(Self, timestamp, serializer)
                     .map_err(|e| ReserializeError::SerdeError(e))?;
 
                 Ok(serialized_pairs)
@@ -195,6 +254,7 @@ fn generate_struct(
                     self.type_id() == other.type_id()
                 }
             }
+            #parser
             #serializer_func
         },
         quote! {

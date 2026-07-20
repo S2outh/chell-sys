@@ -18,6 +18,7 @@ pub use macros::chell_definition;
 // value reexports
 pub use chell_value::ChellValue;
 pub use chell_value::ChellValueError;
+pub use chell_value::ParsableChellValue;
 
 // container reexports
 pub use chell_union::ChellUnion;

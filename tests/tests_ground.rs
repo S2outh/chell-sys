@@ -28,9 +28,9 @@ fn transfer(value: &u32) -> f32 {
 mod telemetry {
     #[chv(i64)]
     struct Timestamp;
-    #[chv(u32, c = crate::transfer)]
+    #[chv(u32, c(f32, crate::transfer))]
     struct FirstChellValue;
-    #[chv(crate::TestValue, other = |v: &crate::TestValue| v.val)]
+    #[chv(crate::TestValue, other(u32, |v: &crate::TestValue| v.val))]
     struct SecondChellValue;
     #[chm(id = 100)]
     mod some_other_mod {

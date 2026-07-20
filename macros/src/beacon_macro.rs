@@ -92,7 +92,7 @@ pub fn impl_macro(args: Punctuated<Meta, Token![,]>) -> TokenStream {
     let serializers = names.iter().zip(paths.clone()).map(|(name, path)| {
         quote! {
             if let Some(value) = self.#name {
-                let mut serialized = value.serialize_ground(&#path, &timestamp, serializer)?;
+                let mut serialized = value.serialize_ground(#path, &timestamp, serializer)?;
                 serialized_values.append(&mut serialized);
             }
         }
