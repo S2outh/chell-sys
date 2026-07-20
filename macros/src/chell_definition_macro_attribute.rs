@@ -5,7 +5,7 @@ use heck::ToSnakeCase;
 use proc_macro2::TokenStream;
 use quote::{ToTokens, format_ident, quote};
 use syn::parse::{Parse, ParseStream};
-use syn::{Expr, MetaList, Path, Type};
+use syn::{Expr, Ident, MetaList, Path, Type};
 use syn::{Item, Meta, Token, punctuated::Punctuated};
 
 const CHELL_VALUE_MACRO_NAME: &str = "chv";
@@ -14,6 +14,7 @@ const CHELL_MODULE_MACRO_NAME: &str = "chm";
 struct TmFunctionArgs {
     ty: Type,
     expr: Expr,
+    ground_only: bool,
 }
 
 impl Parse for TmFunctionArgs {
@@ -21,7 +22,18 @@ impl Parse for TmFunctionArgs {
         let ty: Type = input.parse()?;
         input.parse::<Token![,]>()?;
         let expr: Expr = input.parse()?;
-        Ok(Self { ty, expr })
+        let ground_only = if input.peek(Token![,]) {
+            input.parse::<Token![,]>()?;
+            let ground: Ident = input.parse()?;
+            if ground == "ground" { true } else { false }
+        } else {
+            false
+        };
+        Ok(Self {
+            ty,
+            expr,
+            ground_only,
+        })
     }
 }
 
@@ -52,15 +64,20 @@ impl Parse for TmValueMacroInput {
 
         // Parse remaining key-value pairs
         let metas = Punctuated::<MetaList, Token![,]>::parse_terminated(input)?;
-        let (paths, content): (Vec<_>, Vec<_>) = metas
+        let content: Vec<(Path, TmFunctionArgs)> = metas
             .into_iter()
-            .map(|v| (v.path.clone(), v.parse_args()))
+            .map(|v| Ok((v.path.clone(), v.parse_args()?)))
+            .collect::<Result<_, syn::Error>>()?;
+        // Filter out ground only functions if applicable
+        let (paths, rest): (_, Vec<_>) = content
+            .into_iter()
+            .filter(|(_, arg)| cfg!(feature = "ground") || !arg.ground_only)
             .unzip();
-        let content = content.into_iter().collect::<Result<Vec<_>, _>>()?;
-        let (types, funcs) = content
+        // separate types from actual function bodies
+        let (types, funcs) = rest
             .into_iter()
             .map(|v| {
-                let TmFunctionArgs { ty, expr } = v;
+                let TmFunctionArgs { ty, expr, .. } = v;
                 (ty, expr)
             })
             .unzip();

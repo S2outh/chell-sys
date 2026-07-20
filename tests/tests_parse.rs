@@ -10,19 +10,11 @@ pub struct TestValue {
     val: u32,
 }
 
-#[derive(ChellValue, Default, Clone, Copy)]
-#[cfg_attr(feature = "ground", derive(serde::Serialize))]
-pub struct TestVector {
-    x: i16,
-    y: f32,
-    z: TestValue,
-}
-
 #[chell_definition(id = 0)]
 mod telemetry {
     #[chv(u32, result(f64, |v: &u32| *v as f64 / 2.))]
     struct FirstChellValue;
-    #[chv(crate::TestValue)]
+    #[chv(crate::TestValue, first(u32, |v: &crate::TestValue| v.val, ground))]
     struct SecondChellValue;
 }
 
@@ -31,8 +23,17 @@ extern crate alloc;
 
 #[test]
 fn run_parse_fn() {
-    let first_value = 1234u32;
-    let parsed = first_value.parser(telemetry::FirstChellValue).result();
+    let value = 1234u32;
+    let parsed = value.parser(telemetry::FirstChellValue).result();
 
-    assert_eq!(parsed, first_value as f64 / 2.);
+    assert_eq!(parsed, value as f64 / 2.);
+}
+
+#[cfg(feature = "ground")]
+#[test]
+fn run_gnd_parse_fn() {
+    let value = TestValue { val: 1234u32 };
+    let parsed = value.parser(telemetry::SecondChellValue).first();
+
+    assert_eq!(parsed, value.val);
 }
