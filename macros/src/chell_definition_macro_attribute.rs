@@ -92,17 +92,23 @@ impl Parse for TmValueMacroInput {
 }
 
 #[derive(Default, serde::Serialize)]
+struct ParsingResultDocumentation {
+    address: String,
+    type_name: String,
+}
+
+#[derive(Default, serde::Serialize)]
 struct DefinitionDocumentation {
-    base_address: String,
+    address: String,
     id: u16,
     type_name: String,
     description: String,
-    sub_addresses: Vec<String>,
+    parsed_addresses: Vec<ParsingResultDocumentation>,
 }
 
 #[derive(Default, serde::Serialize)]
 struct FullDocumentation {
-    base_address: String,
+    base_name: String,
     definitions: Vec<DefinitionDocumentation>,
 }
 
@@ -158,7 +164,7 @@ fn generate_struct(
     let address = format!("{}.{}", str_base_addr, def.to_string().to_snake_case());
     // generated documentation
     let mut doc = DefinitionDocumentation::default();
-    doc.base_address = address.clone();
+    doc.address = address.clone();
     doc.id = tm_id;
     if let Some(description) = v
         .attrs
@@ -174,9 +180,11 @@ fn generate_struct(
         doc.description = description;
     }
 
-    for addr in paths.iter() {
-        let full_addr = format!("{}.{}", address, &addr.to_token_stream().to_string());
-        doc.sub_addresses.push(full_addr);
+    for (addr, ty) in paths.iter().zip(types.iter()) {
+        let mut parsing_result_doc = ParsingResultDocumentation::default();
+        parsing_result_doc.address = format!("{}.{}", address, &addr.to_token_stream().to_string());
+        parsing_result_doc.type_name = ty.to_token_stream().to_string();
+        doc.parsed_addresses.push(parsing_result_doc);
     }
     doc.type_name = tmty.to_token_stream().to_string();
 
@@ -410,7 +418,7 @@ pub fn impl_macro(ast: syn::Item, mut id: u16, chell_address: syn::Path) -> Toke
     let id_ref = &mut id;
 
     let mut doc = FullDocumentation::default();
-    doc.base_address = root_mod_ident.to_string();
+    doc.base_name = root_mod_ident.to_string();
 
     let [module_content, id_getters, address_getters, byte_lengths] = generate_tree(
         vec![root_mod_ident.clone()],
