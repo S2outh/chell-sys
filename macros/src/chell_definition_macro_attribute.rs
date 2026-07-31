@@ -41,7 +41,7 @@ impl Parse for TmFunctionArgs {
 
 struct TmValueMacroInput {
     pub ty: Type,
-    pub id_range: Option<u8>,
+    pub id_range: Option<u16>,
     pub paths: Vec<Path>,
     pub types: Vec<Type>,
     pub funcs: Vec<Expr>,
@@ -91,7 +91,7 @@ impl Parse for TmValueMacroInput {
                 let syn::Lit::Int(id_lit) = id_expr.lit else {
                     panic!("wrong macro attributes")
                 };
-                id_lit.base10_parse().expect("id_range should be u8")
+                id_lit.base10_parse().expect("id_range should be u16")
             });
 
         // parsing functions

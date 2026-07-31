@@ -1,4 +1,4 @@
-use crate::{CanID, ChellDefinition, ChellValue, OffsetOutOfRange};
+use crate::{CanID, ChellDefinition, ChellValue};
 
 #[macro_export]
 macro_rules! fd_compat_chell_union {
@@ -50,8 +50,8 @@ impl<const N: usize> ChellUnion<N> {
             len,
         })
     }
-    pub fn id(&self, device_id: u8) -> Result<u16, OffsetOutOfRange> {
-        self.id.get(device_id)
+    pub fn id(&self) -> CanID {
+        self.id
     }
     pub fn bytes(&self) -> &[u8] {
         &self.storage[..self.len]

@@ -43,22 +43,41 @@ macro_rules! match_value {
 
 // CanID Error types
 #[derive(Debug)]
-pub struct OffsetOutOfRange;
+pub struct IdOutOfRange;
 
+#[derive(Clone, Copy)]
 pub enum CanID {
     Single(u16),
-    Range(u16, u8),
+    Range(u16, u16),
 }
 
 impl CanID {
-    pub fn get(&self, offset: u8) -> Result<u16, OffsetOutOfRange> {
+    pub fn get(&self, offset: u16) -> Result<u16, IdOutOfRange> {
         match *self {
             Self::Single(v) => Ok(v),
             Self::Range(b, len) => {
                 if offset < len {
-                    Ok(b + offset as u16)
+                    Ok(b + offset)
                 } else {
-                    Err(OffsetOutOfRange)
+                    Err(IdOutOfRange)
+                }
+            }
+        }
+    }
+    pub fn offset(&self, id: u16) -> Result<u16, IdOutOfRange> {
+        match *self {
+            Self::Single(v) => {
+                if id == v {
+                    Ok(0)
+                } else {
+                    Err(IdOutOfRange)
+                }
+            }
+            Self::Range(b, len) => {
+                if id >= b && id < b + len {
+                    Ok(id - b)
+                } else {
+                    Err(IdOutOfRange)
                 }
             }
         }
