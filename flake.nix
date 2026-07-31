@@ -1,38 +1,50 @@
 {
-  description = "rust flake";
+  description = "embassy flake";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     flake-utils.url = "github:numtide/flake-utils";
-    fenix = {
-      url = "github:nix-community/fenix/monthly";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
+    fenix.url = "github:nix-community/fenix/monthly";
   };
 
-  outputs = { self, nixpkgs, fenix, flake-utils }:
+  outputs = { self, nixpkgs, flake-utils, fenix }:
     flake-utils.lib.eachDefaultSystem (system:
       let
         pkgs = import nixpkgs {
           inherit system;
-          overlays = [ fenix.overlays.default ];
         };
+        fpkgs = fenix.packages.${system};
+        profile = fpkgs.complete;
+        std-lib = fpkgs.targets.thumbv7em-none-eabihf.latest;
+        rust-analyzer-nightly = fpkgs.rust-analyzer;
+        rust-toolchain = fpkgs.combine [
+          profile.rustc
+          profile.rust-src
+          profile.cargo
+          profile.rustfmt
+          profile.clippy
+          profile.llvm-tools
+          std-lib.rust-std
+        ];
       in
       {
         devShells.default =
-        let
-          rust = pkgs.fenix.complete.toolchain;
-          rust-analyzer = pkgs.fenix.rust-analyzer;
-        in
         pkgs.mkShell {
-          buildInputs = [
-            rust
-            rust-analyzer
+          buildInputs = with pkgs; [
+            rust-toolchain
+            rust-analyzer-nightly
 
-            pkgs.cargo-expand
+            # extra cargo tools
+            cargo-edit
+            cargo-expand
+            cargo-show-asm
+            cargo-binutils
           ];
-          RUSTFLAGS="-Zmacro-backtrace";
+
+          # set the rust src for rust_analyzer
+          RUST_SRC_PATH = "${rust-toolchain}/lib/rustlib/src/rust/library";
         };
       }
     );
 }
+

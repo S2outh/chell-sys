@@ -1,7 +1,7 @@
+#![cfg(feature = "ground")]
 #![feature(const_trait_impl)]
 #![feature(const_cmp)]
 #![feature(const_default)]
-#![cfg(feature = "ground")]
 
 use chell::*;
 
