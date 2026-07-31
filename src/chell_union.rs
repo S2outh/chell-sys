@@ -1,4 +1,4 @@
-use crate::{ChellDefinition, ChellValue};
+use crate::{CanID, ChellDefinition, ChellValue, OffsetOutOfRange};
 
 #[macro_export]
 macro_rules! fd_compat_chell_union {
@@ -26,12 +26,13 @@ pub const fn ceil_to_fd_compat(len: usize) -> Result<usize, UnsupportedValue> {
     Err(UnsupportedValue)
 }
 
+// Union error types
 #[derive(Debug)]
 pub struct UnsupportedValue;
 
 /// This is a generic wrapper to hold ChellValues as bytes for transfer via fdcan
 pub struct ChellUnion<const N: usize> {
-    id: u16,
+    id: CanID,
     storage: [u8; N],
     len: usize,
 }
@@ -49,8 +50,8 @@ impl<const N: usize> ChellUnion<N> {
             len,
         })
     }
-    pub fn id(&self) -> u16 {
-        self.id
+    pub fn id(&self, device_id: u8) -> Result<u16, OffsetOutOfRange> {
+        self.id.get(device_id)
     }
     pub fn bytes(&self) -> &[u8] {
         &self.storage[..self.len]

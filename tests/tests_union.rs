@@ -33,7 +33,7 @@ mod telemetry {
     mod some_other_mod {
         #[chv(u64)]
         struct ThirdChellValue;
-        #[chv(i32)]
+        #[chv(i32, id_range = 5)]
         struct FourthChellValue;
         #[chv(crate::TestValue)]
         struct FifthChellValue;
@@ -50,7 +50,7 @@ fn value_container_creation() {
     assert_eq!(ValueTestContainer::SIZE, 5);
 
     let container = ValueTestContainer::new(&telemetry::OptionTest, &Some(22)).unwrap();
-    assert_eq!(container.id(), 2);
+    assert_eq!(container.id(0).unwrap(), 2);
 
     assert_eq!(container.bytes().len(), 5);
     assert_eq!(container.bytes()[0], 1);
@@ -64,7 +64,7 @@ fn partial_container_creation() {
 
     let container =
         PartialTestContainer::new(&telemetry::some_other_mod::FourthChellValue, &42).unwrap();
-    assert_eq!(container.id(), 101);
+    assert_eq!(container.id(3).unwrap(), 104);
 
     assert_eq!(container.bytes().len(), 4);
     assert_eq!(container.bytes()[0..4], 42i32.to_le_bytes());
@@ -84,7 +84,7 @@ fn full_container_creation() {
         },
     )
     .unwrap();
-    assert_eq!(container.id(), 1);
+    assert_eq!(container.id(0).unwrap(), 1);
 
     assert_eq!(container.bytes().len(), 10);
     assert_eq!(container.bytes()[0..2], 12i16.to_le_bytes());

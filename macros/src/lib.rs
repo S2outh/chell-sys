@@ -1,4 +1,5 @@
 #![feature(iter_intersperse)]
+#![feature(extend_one)]
 mod beacon_macro;
 mod chell_definition_macro_attribute;
 mod chell_value_macro_derive;

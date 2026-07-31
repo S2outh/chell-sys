@@ -1,11 +1,13 @@
 use std::array::from_fn;
 use std::iter::{once, zip};
 
+use crate::macro_utils::{Either, PartitionMapExt};
+
 use heck::ToSnakeCase;
 use proc_macro2::TokenStream;
 use quote::{ToTokens, format_ident, quote};
 use syn::parse::{Parse, ParseStream};
-use syn::{Expr, Ident, MetaList, Path, Type};
+use syn::{Expr, Ident, Path, Type};
 use syn::{Item, Meta, Token, punctuated::Punctuated};
 
 const CHELL_VALUE_MACRO_NAME: &str = "chv";
@@ -39,6 +41,7 @@ impl Parse for TmFunctionArgs {
 
 struct TmValueMacroInput {
     pub ty: Type,
+    pub id_range: Option<u8>,
     pub paths: Vec<Path>,
     pub types: Vec<Type>,
     pub funcs: Vec<Expr>,
@@ -53,6 +56,7 @@ impl Parse for TmValueMacroInput {
         if input.is_empty() {
             return Ok(Self {
                 ty,
+                id_range: None,
                 paths: Vec::new(),
                 types: Vec::new(),
                 funcs: Vec::new(),
@@ -62,9 +66,36 @@ impl Parse for TmValueMacroInput {
         // Expect comma after type
         input.parse::<Token![,]>()?;
 
-        // Parse remaining key-value pairs
-        let metas = Punctuated::<MetaList, Token![,]>::parse_terminated(input)?;
-        let content: Vec<(Path, TmFunctionArgs)> = metas
+        // Parse remaining metas
+        let metas = Punctuated::<Meta, Token![,]>::parse_terminated(input)?;
+        let (lists, name_values): (Vec<_>, Vec<_>) = metas.iter().partition_map(|v| match v {
+            Meta::List(v) => Either::Left(v),
+            Meta::NameValue(v) => Either::Right(v),
+            _ => panic!("no paths allowed here"),
+        });
+
+        // id ranges
+        let id_range = name_values
+            .iter()
+            .find(|v| {
+                if let Some(i) = v.path.get_ident() {
+                    i == "id_range"
+                } else {
+                    false
+                }
+            })
+            .map(|v| {
+                let syn::Expr::Lit(id_expr) = v.value.clone() else {
+                    panic!("wrong macro attributes")
+                };
+                let syn::Lit::Int(id_lit) = id_expr.lit else {
+                    panic!("wrong macro attributes")
+                };
+                id_lit.base10_parse().expect("id_range should be u8")
+            });
+
+        // parsing functions
+        let content: Vec<(Path, TmFunctionArgs)> = lists
             .into_iter()
             .map(|v| Ok((v.path.clone(), v.parse_args()?)))
             .collect::<Result<_, syn::Error>>()?;
@@ -84,6 +115,7 @@ impl Parse for TmValueMacroInput {
 
         Ok(Self {
             ty,
+            id_range,
             paths,
             types,
             funcs,
@@ -100,7 +132,7 @@ struct ParsingResultDocumentation {
 #[derive(Default, serde::Serialize)]
 struct DefinitionDocumentation {
     address: String,
-    id: u16,
+    id: String,
     type_name: String,
     description: String,
     parsed_addresses: Vec<ParsingResultDocumentation>,
@@ -151,9 +183,20 @@ fn generate_struct(
         .collect();
 
     // Parse type of the ChellValue the struct references
-    let tm_id = *id;
-    // Increment id
-    *id += 1;
+    let (tm_id, tm_id_match, increment) = match args.id_range {
+        Some(range) => {
+            let end = *id + range as u16;
+            (
+                quote! { CanID::Range(#id, #range) },
+                quote! { #id..#end },
+                range as u16,
+            )
+        }
+        None => (quote! { CanID::Single(#id) }, quote! { #id }, 1),
+    };
+
+    // increment id
+    *id += increment;
     // calculate string address based on module tree
     let str_base_addr: String = address
         .iter()
@@ -165,7 +208,7 @@ fn generate_struct(
     // generated documentation
     let mut doc = DefinitionDocumentation::default();
     doc.address = address.clone();
-    doc.id = tm_id;
+    doc.id = tm_id_match.to_token_stream().to_string();
     if let Some(description) = v
         .attrs
         .iter()
@@ -266,10 +309,9 @@ fn generate_struct(
             pub struct #def;
             impl InternalChellDefinition for #def {
                 type ChellValueType = #tmty;
-                const ID: u16 = #tm_id;
             }
             impl ChellDefinition for #def {
-                fn id(&self) -> u16 { Self::ID }
+                fn id(&self) -> CanID { #tm_id }
                 fn address(&self) -> &str { #address }
                 fn as_any(&self) -> &dyn Any { self }
                 #reserializer_func
@@ -283,7 +325,7 @@ fn generate_struct(
             #serializer_func
         },
         quote! {
-            #tm_id => Ok(&#def_addr),
+            #tm_id_match => Ok(&#def_addr),
         },
         quote! {
             #address => Ok(&#def_addr),

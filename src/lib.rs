@@ -41,8 +41,32 @@ macro_rules! match_value {
     }}
 }
 
+// CanID Error types
+#[derive(Debug)]
+pub struct OffsetOutOfRange;
+
+pub enum CanID {
+    Single(u16),
+    Range(u16, u8),
+}
+
+impl CanID {
+    pub fn get(&self, offset: u8) -> Result<u16, OffsetOutOfRange> {
+        match *self {
+            Self::Single(v) => Ok(v),
+            Self::Range(b, len) => {
+                if offset < len {
+                    Ok(b + offset as u16)
+                } else {
+                    Err(OffsetOutOfRange)
+                }
+            }
+        }
+    }
+}
+
 pub trait ChellDefinition: Any {
-    fn id(&self) -> u16;
+    fn id(&self) -> CanID;
     fn address(&self) -> &str;
     fn as_any(&self) -> &dyn Any;
     #[cfg(feature = "ground")]
@@ -67,11 +91,10 @@ pub mod _internal {
     pub const trait InternalChellDefinition: crate::ChellDefinition {
         type ChellValueType: crate::ChellValue;
         const MAX_BYTE_SIZE: usize = Self::ChellValueType::MAX_BYTE_SIZE;
-        const ID: u16;
     }
 }
 
-// Error types
+// Beacon error types
 #[derive(Debug)]
 pub struct NotFoundError;
 
