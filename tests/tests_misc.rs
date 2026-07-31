@@ -2,6 +2,7 @@
 #![feature(const_cmp)]
 
 use chell::*;
+
 extern crate alloc;
 
 #[derive(ChellValue, Default, Clone, Copy)]
@@ -36,8 +37,8 @@ mod telemetry {
 
 #[test]
 fn test_match() {
-    let v: &dyn ChellDefinition = &telemetry::Timestamp;
-    match_value!(v, {
+    let def: &dyn ChellDefinition = &telemetry::Timestamp;
+    match_def!(def, {
         telemetry::Timestamp => (),
         telemetry::FirstChellValue => panic!(),
     });
@@ -45,10 +46,43 @@ fn test_match() {
 
 #[test]
 fn test_match_default() {
-    let v: &dyn ChellDefinition = &telemetry::Timestamp;
-    match_value!(v, {
+    let def: &dyn ChellDefinition = &telemetry::Timestamp;
+    match_def!(def, {
         telemetry::Timestamp => (),
         telemetry::FirstChellValue => panic!(),
-        => panic!()
+        :default panic!()
     });
+}
+
+#[test]
+fn test_match_deserialize() {
+    let def: &dyn ChellDefinition = &telemetry::Timestamp;
+    let v = 214i64;
+    let bytes = telemetry::Timestamp.serialize(&v).unwrap();
+
+    match_def!(def, bytes: bytes, {
+        telemetry::Timestamp [deserialized_value] => assert_eq!(v, deserialized_value),
+        telemetry::FirstChellValue => panic!(),
+        :default panic!()
+    });
+}
+
+#[test]
+fn test_match_deserialization_error() {
+    let def: &dyn ChellDefinition = &telemetry::Timestamp;
+    let v = 214i64;
+    let bytes = telemetry::Timestamp.serialize(&v).unwrap();
+
+    match_def!(def, bytes: bytes, error: panic!(), {
+        telemetry::Timestamp [deserialized_value] => assert_eq!(v, deserialized_value),
+        telemetry::FirstChellValue => panic!(),
+        :default panic!()
+    });
+}
+
+#[test]
+fn test_deserialize() {
+    let v = 802267u32;
+    let bytes = telemetry::FirstChellValue.serialize(&v).unwrap();
+    assert_eq!(v, telemetry::FirstChellValue.deserialize(&bytes).unwrap())
 }

@@ -317,8 +317,17 @@ fn generate_struct(
                 #reserializer_func
             }
             impl #def {
-                fn equals(&self, other: &dyn ChellDefinition) -> bool {
+                pub fn equals(&self, other: &dyn ChellDefinition) -> bool {
                     self.type_id() == other.type_id()
+                }
+                pub fn serialize(&self, value: &#tmty) -> Result<[u8; Self::MAX_BYTE_SIZE], ChellValueError> {
+                    let mut mem = [0; _];
+                    value.write(&mut mem)?;
+                    Ok(mem)
+                }
+                pub fn deserialize(&self, bytes: &[u8]) -> Result<#tmty, ChellValueError> {
+                    let (_, v) = <#tmty>::read(bytes)?;
+                    Ok(v)
                 }
             }
             #parser
@@ -400,12 +409,12 @@ fn generate_module_recursive(
                     (#start_id, #id)
                 }
                 pub const MAX_BYTE_SIZE: usize = {
-                    let SIZES = [#byte_lengths];
+                    let sizes = [#byte_lengths];
                     let mut max = 0;
                     let mut i = 0;
-                    while i < SIZES.len() {
-                        if SIZES[i] > max {
-                            max = SIZES[i];
+                    while i < sizes.len() {
+                        if sizes[i] > max {
+                            max = sizes[i];
                         }
                         i += 1;
                     }
@@ -502,12 +511,12 @@ pub fn impl_macro(ast: syn::Item, mut id: u16, chell_address: syn::Path) -> Toke
                 (#start_id, #id_ref)
             }
             pub const MAX_BYTE_SIZE: usize = {
-                let SIZES = [#byte_lengths];
+                let sizes = [#byte_lengths];
                 let mut max = 0;
                 let mut i = 0;
-                while i < SIZES.len() {
-                    if SIZES[i] > max {
-                        max = SIZES[i];
+                while i < sizes.len() {
+                    if sizes[i] > max {
+                        max = sizes[i];
                     }
                     i += 1;
                 }

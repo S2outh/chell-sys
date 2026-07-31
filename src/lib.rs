@@ -7,6 +7,7 @@ extern crate alloc;
 mod bitfield;
 mod chell_union;
 mod chell_value;
+mod proc_macros;
 
 use core::any::Any;
 
@@ -24,22 +25,6 @@ pub use chell_value::ParsableChellValue;
 pub use chell_union::ChellUnion;
 pub use chell_union::UnsupportedValue;
 pub use chell_union::ceil_to_fd_compat;
-
-#[macro_export]
-macro_rules! match_value {
-    ($value:expr, {
-        $($t:ty => $body:expr,)*
-        $(=> $def:expr)?
-    }) => {{
-        let any = $value.as_any();
-        $(if any.is::<$t>() {
-            $body
-        })else*
-        $(else {
-            $def
-        })?
-    }}
-}
 
 // CanID Error types
 #[derive(Debug)]
