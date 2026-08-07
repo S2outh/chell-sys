@@ -102,7 +102,7 @@ fn impl_enum(tm_value_enum: syn::DataEnum) -> TokenStream {
             syn::Fields::Unit => {
                 quote! {
                     Self::#ident => {
-                        mem[0] = #index;
+                        *(mem.first_mut().ok_or(ChellValueError::OutOfMemory)?) = #index;
                     }
                 }
             }
@@ -116,7 +116,7 @@ fn impl_enum(tm_value_enum: syn::DataEnum) -> TokenStream {
                 });
                 quote! {
                     Self::#ident(#(#field_idents),*) => {
-                        mem[0] = #index;
+                        *(mem.first_mut().ok_or(ChellValueError::OutOfMemory)?) = #index;
                         #(#field_parsers)*
                     }
                 }
@@ -134,7 +134,7 @@ fn impl_enum(tm_value_enum: syn::DataEnum) -> TokenStream {
         };
         fn read(bytes: &[u8]) -> Result<(usize, Self), ChellValueError> {
             let mut pos = 1;
-            let value = match bytes[0] {
+            let value = match bytes.first().ok_or(ChellValueError::OutOfMemory)? {
                 #(#enum_variant_parsers)*
                 _ => return Err(ChellValueError::BadEnumVariant)
             };

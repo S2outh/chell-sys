@@ -1,5 +1,6 @@
 #![no_std]
 #![feature(const_trait_impl)]
+#![feature(array_try_from_fn)]
 
 #[cfg(feature = "ground")]
 extern crate alloc;

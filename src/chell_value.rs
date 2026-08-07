@@ -126,19 +126,16 @@ impl ChellValue for () {
 impl<const N: usize, T: ChellValue> ChellValue for [T; N] {
     const MAX_BYTE_SIZE: usize = N * T::MAX_BYTE_SIZE;
     fn read(bytes: &[u8]) -> Result<(usize, Self), ChellValueError> {
-        unsafe {
-            let mut pos = 0;
-            let mut arr: Self = core::mem::zeroed();
-            for i in 0..N {
-                if pos >= bytes.len() {
-                    return Err(ChellValueError::OutOfMemory);
-                }
-                let (len, value) = T::read(&bytes[pos..])?;
-                pos += len;
-                arr[i] = value;
+        let mut pos = 0;
+        let arr = core::array::try_from_fn(|_| {
+            if pos >= bytes.len() {
+                return Err(ChellValueError::OutOfMemory);
             }
-            Ok((pos, arr))
-        }
+            let (len, value) = T::read(&bytes[pos..])?;
+            pos += len;
+            Ok(value)
+        })?;
+        Ok((pos, arr))
     }
     fn write(&self, mem: &mut [u8]) -> Result<usize, ChellValueError> {
         let mut pos = 0;
