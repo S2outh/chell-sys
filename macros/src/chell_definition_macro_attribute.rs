@@ -394,6 +394,11 @@ fn generate_module_recursive(
     let module_name = v.ident.clone();
     let mut address = address.clone();
     address.push(module_name.clone());
+    let str_base_addr: String = address
+        .iter()
+        .map(|i| i.to_string())
+        .intersperse(String::from("."))
+        .collect();
     let [module_content, id_getters, address_getters, byte_lengths] = generate_tree(
         address,
         id,
@@ -407,6 +412,9 @@ fn generate_module_recursive(
                 use super::*;
                 pub const fn id_range() -> (u16, u16) {
                     (#start_id, #id)
+                }
+                pub const fn base_address() -> &'static str {
+                    #str_base_addr
                 }
                 pub const MAX_BYTE_SIZE: usize = {
                     let sizes = [#byte_lengths];

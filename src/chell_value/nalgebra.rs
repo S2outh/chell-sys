@@ -11,6 +11,7 @@ macro_rules! newtype_value {
         $($interface)* {
             const MAX_BYTE_SIZE: usize = <$inner>::MAX_BYTE_SIZE;
 
+            #[inline]
             fn read(bytes: &[u8]) -> Result<(usize, Self), ChellValueError>
             where
                 Self: Sized,
@@ -18,6 +19,7 @@ macro_rules! newtype_value {
                 let (len, value) = <$inner>::read(bytes)?;
                 Ok((len, $constructor(value)))
             }
+            #[inline]
             fn write(&self, mem: &mut [u8]) -> Result<usize, ChellValueError> {
                 self.$field.write(mem)
             }

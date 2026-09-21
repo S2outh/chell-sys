@@ -1,12 +1,15 @@
 [package]
 name = "chell"
-version = "7.8.2"
+version = "7.9.0"
 edition = "2024"
 
 [features]
 ground = ["dep:erased-serde", "dep:serde", "macros/ground"]
+
 heapless = ["dep:heapless"]
 nalgebra = ["dep:nalgebra"]
+
+varint = []
 
 [dependencies]
 macros = { package = "chell-macros", path = "./macros/" }
@@ -17,7 +20,7 @@ heapless = { version = "0.9", default-features = false, optional = true }
 
 # ground serialization via serde
 erased-serde = { version = "0.4.10", default-features = false, features = ["alloc"], optional = true }
-serde = { version = "1.0.228", default-features = false, features = ["derive"], optional = true }
+serde = { version = "1.0.229", default-features = false, features = ["derive"], optional = true }
 
 [dev-dependencies]
 serde_cbor = "0.11.2"
