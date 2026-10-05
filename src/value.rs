@@ -33,7 +33,7 @@ where
 
 #[cfg(feature = "ground")]
 pub mod ground {
-    use crate::{ChellDefinition, ChellValueError};
+    use super::{ChellDefinition, ChellValueError};
     use serde::ser::SerializeStruct;
     pub trait SerializableChellValue<DEF>: super::ChellValue + serde::Serialize
     where

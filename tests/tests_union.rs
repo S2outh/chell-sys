@@ -1,5 +1,6 @@
 #![feature(const_trait_impl)]
 #![feature(const_cmp)]
+use chell::fd_compat_chell_union;
 use chell::{_internal::InternalChellDefinition, *};
 
 #[cfg(feature = "ground")]

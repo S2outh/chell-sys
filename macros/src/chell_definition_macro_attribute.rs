@@ -501,7 +501,7 @@ pub fn impl_macro(ast: syn::Item, mut id: u16, chell_address: syn::Path) -> Toke
         pub mod #root_mod_ident {
             pub const __TOOLING_METADATA: &str = #str_doc;
             use super::*;
-            use #chell_address::{*, _internal::*};
+            use #chell_address::{definition::*, value::*, _internal::*};
             use core::any::Any;
             #serializer_imports
             pub const fn from_id(id: u16) -> Result<&'static dyn ChellDefinition, NotFoundError> {

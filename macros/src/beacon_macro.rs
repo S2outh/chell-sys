@@ -126,7 +126,7 @@ pub fn impl_macro(args: Punctuated<Meta, Token![,]>) -> TokenStream {
     quote! {
         pub use #beacon_module_name::#beacon_name;
         mod #beacon_module_name {
-            use chell::{_internal::*, *};
+            use chell::{beacon::*, definition::*, value::*, _internal::*};
             #serializer_imports
             pub const BEACON_ID: u8 = #id;
             pub struct #beacon_name {

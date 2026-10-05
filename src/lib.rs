@@ -5,133 +5,41 @@
 #[cfg(feature = "ground")]
 extern crate alloc;
 
-mod bitfield;
-mod chell_union;
-mod chell_value;
+pub mod beacon;
+pub mod definition;
 mod proc_macros;
+pub mod union;
+pub mod value;
 
-use core::any::Any;
-
-// macro reexports
+/// Reexports of macros
 pub use macros::ChellValue;
 pub use macros::beacon;
 pub use macros::chell_definition;
 
-// value reexports
-pub use chell_value::ChellValue;
-pub use chell_value::ChellValueError;
-pub use chell_value::ParsableChellValue;
+/// Reexports of most relevant traits
+pub use beacon::Beacon;
 
-// container reexports
-pub use chell_union::ChellUnion;
-pub use chell_union::UnsupportedValue;
-pub use chell_union::ceil_to_fd_compat;
+pub use definition::ChellDefinition;
+pub use definition::can_id::CanID;
 
-// CanID Error types
-#[derive(Debug)]
-pub struct IdOutOfRange;
+pub use value::ChellValue;
+pub use value::ChellValueError;
+pub use value::ParsableChellValue;
 
-#[derive(Clone, Copy)]
-pub enum CanID {
-    Single(u16),
-    Range(u16, u16),
-}
+pub use union::ChellUnion;
 
-impl CanID {
-    pub fn get(&self, offset: u16) -> Result<u16, IdOutOfRange> {
-        match *self {
-            Self::Single(v) => Ok(v),
-            Self::Range(b, len) => {
-                if offset < len {
-                    Ok(b + offset)
-                } else {
-                    Err(IdOutOfRange)
-                }
-            }
-        }
-    }
-    pub fn offset(&self, id: u16) -> Result<u16, IdOutOfRange> {
-        match *self {
-            Self::Single(v) => {
-                if id == v {
-                    Ok(0)
-                } else {
-                    Err(IdOutOfRange)
-                }
-            }
-            Self::Range(b, len) => {
-                if id >= b && id < b + len {
-                    Ok(id - b)
-                } else {
-                    Err(IdOutOfRange)
-                }
-            }
-        }
-    }
-}
-
-pub trait ChellDefinition: Any {
-    fn id(&self) -> CanID;
-    fn address(&self) -> &str;
-    fn as_any(&self) -> &dyn Any;
-    #[cfg(feature = "ground")]
-    fn reserialize(
-        &self,
-        bytes: &[u8],
-        timestamp: &dyn erased_serde::Serialize,
-        serializer: &dyn Fn(
-            &dyn erased_serde::Serialize,
-        ) -> Result<alloc::vec::Vec<u8>, erased_serde::Error>,
-    ) -> Result<alloc::vec::Vec<(&'static str, alloc::vec::Vec<u8>)>, ground::ReserializeError>;
-}
-
+/// Reexports for ground
 #[cfg(feature = "ground")]
-pub use crate::chell_value::ground;
+pub use crate::value::ground;
+
 /// Reexports that should only be used by the macro generated code
 pub mod _internal {
     use crate::ChellValue;
-    pub use crate::bitfield::Bitfield;
+    pub use crate::beacon::bitfield::Bitfield;
     #[cfg(feature = "ground")]
     pub use crate::ground::*;
     pub const trait InternalChellDefinition: crate::ChellDefinition {
         type ChellValueType: crate::ChellValue;
         const MAX_BYTE_SIZE: usize = Self::ChellValueType::MAX_BYTE_SIZE;
     }
-}
-
-// Beacon error types
-#[derive(Debug)]
-pub struct NotFoundError;
-
-#[derive(Debug)]
-pub enum BeaconOperationError {
-    DefNotInBeacon,
-    OutOfMemory,
-}
-
-#[derive(Debug)]
-pub enum ParseError {
-    WrongId,
-    BadCRC,
-    OutOfMemory,
-}
-
-// Dynamic beacon trait
-pub trait Beacon {
-    type Timestamp;
-    fn insert_slice(
-        &mut self,
-        chell_definition: &dyn ChellDefinition,
-        bytes: &[u8],
-    ) -> Result<(), BeaconOperationError>;
-    fn from_bytes(
-        &mut self,
-        bytes: &[u8],
-        crc_func: &mut dyn FnMut(&[u8]) -> u16,
-    ) -> Result<(), ParseError>;
-    fn to_bytes(&mut self, crc_func: &mut dyn FnMut(&[u8]) -> u16) -> &[u8];
-    fn set_timestamp(&mut self, timestamp: Self::Timestamp);
-    fn flush(&mut self);
-    fn name(&self) -> &'static str;
-    fn id(&self) -> u8;
 }
