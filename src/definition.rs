@@ -1,7 +1,7 @@
-use can_id::CanID;
 use core::any::Any;
 
 pub mod can_id;
+pub use can_id::CanID;
 
 // Definition error types
 #[derive(Debug, PartialEq, thiserror::Error)]

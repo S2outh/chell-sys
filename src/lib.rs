@@ -19,8 +19,8 @@ pub use macros::chell_definition;
 /// Reexports of most relevant traits
 pub use beacon::Beacon;
 
+pub use definition::CanID;
 pub use definition::ChellDefinition;
-pub use definition::can_id::CanID;
 
 pub use value::ChellValue;
 pub use value::ChellValueError;
