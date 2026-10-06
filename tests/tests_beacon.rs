@@ -2,15 +2,15 @@
 #![feature(const_cmp)]
 #![feature(const_default)]
 
-use chell::*;
+use chell::{_internal::InternalChellDefinition, *};
 
-#[derive(ChellValue, Default, Clone, Copy)]
+#[derive(ChellValue, Default, Clone, Copy, PartialEq, Debug)]
 #[cfg_attr(feature = "ground", derive(serde::Serialize))]
 pub struct TestValue {
     val: u32,
 }
 
-#[derive(ChellValue, Default, Clone, Copy)]
+#[derive(ChellValue, Default, Clone, Copy, PartialEq, Debug)]
 #[cfg_attr(feature = "ground", derive(serde::Serialize))]
 pub struct TestVector {
     x: i16,
@@ -87,12 +87,24 @@ fn beacon_creation() {
     beacon.second_chell_value = Some(second_value);
     beacon.some_other_mod_third_chell_value = Some(third_value);
 
-    let sizes = [3, 1, 8, 4, (4), (2 + 4 + 4)];
+    let fix_header_bytes = 3; // id + crc
+    let var_header_bytes = 1; // only 3 fields, 1 byte bitflag is enough
+    let sizes = [
+        fix_header_bytes,
+        var_header_bytes,
+        1, // Timestamp is 0
+        2, // 1234 takes two varint bytes
+        1, // 3 takes one varint byte
+        1, // x is one varint byte
+        4, // y is a float using 4 bytes
+        1, // z takes 1 varint byte
+    ];
+    println!("{:?}", beacon.to_bytes(&mut crc_ccitt));
     assert_eq!(beacon.to_bytes(&mut crc_ccitt).len(), sizes.iter().sum());
 }
 
 #[test]
-fn beacon_insertion() {
+fn beacon_reserialization() {
     let mut beacon = TestBeacon::new();
 
     let first_value = 1234u32;
@@ -109,17 +121,20 @@ fn beacon_insertion() {
 
     let bytes = beacon.to_bytes(&mut crc_ccitt);
     let crc = crc_ccitt(&bytes[3..]);
-    // calculated with
-    // https://www.crccalc.com/?crc=00, 00, 00, 00, 00, 00, 00, 00, D2, 04, 00, 00, 03, 00, 00, 00, 03, 00, 33, 33, 53, 40, 01, 00, 00, 00&method=CRC-16/CCITT-FALSE&datatype=hex&outtype=hex
-    // assert_eq!(crc, 0x8798);
 
+    // check crc and id
     assert_eq!(bytes[0], 0);
     assert_eq!(bytes[1..3], crc.to_le_bytes());
-    assert_eq!(bytes[12..16], first_value.to_le_bytes());
-    assert_eq!(bytes[16..20], second_value.val.to_le_bytes());
-    assert_eq!(bytes[20..22], third_value.x.to_le_bytes());
-    assert_eq!(bytes[22..26], third_value.y.to_le_bytes());
-    assert_eq!(bytes[26..30], third_value.z.val.to_le_bytes());
+
+    // deserialize and test eq
+    let mut beacon_copy = TestBeacon::new();
+    beacon_copy.from_bytes(bytes, &mut crc_ccitt).unwrap();
+    assert_eq!(beacon_copy.first_chell_value, Some(first_value));
+    assert_eq!(beacon_copy.second_chell_value, Some(second_value));
+    assert_eq!(
+        beacon_copy.some_other_mod_third_chell_value,
+        Some(third_value)
+    );
 }
 
 #[test]

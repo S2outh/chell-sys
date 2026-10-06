@@ -47,33 +47,31 @@ type FullTestContainer = fd_compat_chell_union!(telemetry);
 
 #[test]
 fn value_container_creation() {
-    assert_eq!(telemetry::OptionTest::MAX_BYTE_SIZE, 5);
-    assert_eq!(ValueTestContainer::SIZE, 5);
+    assert_eq!(telemetry::OptionTest::MAX_BYTE_SIZE, 6);
+    assert_eq!(ValueTestContainer::SIZE, 6);
 
-    let container = ValueTestContainer::new(&telemetry::OptionTest, &Some(22)).unwrap();
+    let container = ValueTestContainer::new(&telemetry::OptionTest, &Some(i32::MAX)).unwrap();
     assert_eq!(container.id().get(0).unwrap(), 2);
 
-    assert_eq!(container.bytes().len(), 5);
+    assert_eq!(container.bytes().len(), 6);
     assert_eq!(container.bytes()[0], 1);
-    assert_eq!(container.bytes()[1..5], 22i32.to_le_bytes());
 }
 
 #[test]
 fn partial_container_creation() {
-    assert_eq!(telemetry::some_other_mod::MAX_BYTE_SIZE, 8);
-    assert_eq!(PartialTestContainer::SIZE, 8);
+    assert_eq!(telemetry::some_other_mod::MAX_BYTE_SIZE, 10);
+    assert_eq!(PartialTestContainer::SIZE, 12); // 2 bytes larger for fd compat
 
     let container =
-        PartialTestContainer::new(&telemetry::some_other_mod::FourthChellValue, &42).unwrap();
+        PartialTestContainer::new(&telemetry::some_other_mod::FourthChellValue, &i32::MAX).unwrap();
     assert_eq!(container.id().get(3).unwrap(), 104);
 
-    assert_eq!(container.bytes().len(), 4);
-    assert_eq!(container.bytes()[0..4], 42i32.to_le_bytes());
+    assert_eq!(container.bytes().len(), 5);
 }
 
 #[test]
 fn full_container_creation() {
-    assert_eq!(telemetry::MAX_BYTE_SIZE, 10);
+    assert_eq!(telemetry::MAX_BYTE_SIZE, 12);
     assert_eq!(FullTestContainer::SIZE, 12);
 
     let container = FullTestContainer::new(
@@ -87,8 +85,5 @@ fn full_container_creation() {
     .unwrap();
     assert_eq!(container.id().get(0).unwrap(), 1);
 
-    assert_eq!(container.bytes().len(), 10);
-    assert_eq!(container.bytes()[0..2], 12i16.to_le_bytes());
-    assert_eq!(container.bytes()[2..6], 24f32.to_le_bytes());
-    assert_eq!(container.bytes()[6..10], 36u32.to_le_bytes());
+    assert_eq!(container.bytes().len(), 6);
 }

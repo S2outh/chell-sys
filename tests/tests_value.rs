@@ -54,7 +54,6 @@ fn chell_value_primitives() {
     let first_value_bytes = to_bytes!(u32, first_value);
     let first_value_copy = u32::read(&first_value_bytes).unwrap().1;
 
-    assert_eq!(first_value.to_le_bytes(), first_value_bytes);
     assert_eq!(first_value, first_value_copy);
 }
 
@@ -96,7 +95,7 @@ fn chell_value_generics() {
 #[test]
 fn chell_value_arrays() {
     let first_value: [i32; 7] = [1, 2, 3, 4, 3, 2, 1];
-    let first_value_bytes: [u8; 7 * 4] = to_bytes!([i32; 7], first_value);
+    let first_value_bytes: [u8; _] = to_bytes!([i32; 7], first_value);
     let first_value_copy = <[i32; 7]>::read(&first_value_bytes).unwrap().1;
 
     assert_eq!(first_value, first_value_copy);
@@ -107,7 +106,7 @@ fn chell_value_enums() {
     let first_value = TestEnum::ThirdVar {
         test_value: TestValue { val: Some(42) },
     };
-    let first_value_bytes: [u8; 1 + 1 + 4] = to_bytes!(TestEnum, first_value);
+    let first_value_bytes: [u8; _] = to_bytes!(TestEnum, first_value);
     let first_value_copy = TestEnum::read(&first_value_bytes).unwrap().1;
 
     assert_eq!(first_value, first_value_copy);
