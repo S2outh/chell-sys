@@ -1,5 +1,6 @@
 // CanID Error types
-#[derive(Debug)]
+#[derive(Debug, PartialEq, thiserror::Error)]
+#[error("Can id out of range")]
 pub struct IdOutOfRange;
 
 #[derive(Clone, Copy)]

@@ -152,7 +152,7 @@ pub fn impl_macro(args: Punctuated<Meta, Token![,]>) -> TokenStream {
                 type Timestamp = #timestamp_type;
                 fn from_bytes(&mut self, bytes: &[u8], crc_func: &mut dyn FnMut(&[u8]) -> u16) -> Result<(), ParseError> {
                     if bytes.len() < #header_size {
-                        return Err(ParseError::OutOfMemory);
+                        return Err(ParseError::OutOfBytes);
                     }
                     // Beacon ID
                     if bytes[0] != BEACON_ID {
@@ -168,13 +168,13 @@ pub fn impl_macro(args: Punctuated<Meta, Token![,]>) -> TokenStream {
                     // Bitfield
                     let bitfield = Bitfield::<#bitfield_size>::new_from_bytes(bytes[3..#header_size].try_into().unwrap());
                     // Timestamp
-                    let (len, timestamp_value) = #timestamp_type::read(&bytes[pos..]).map_err(|_| ParseError::OutOfMemory)?;
+                    let (len, timestamp_value) = #timestamp_type::read(&bytes[pos..]).map_err(|_| ParseError::OutOfBytes)?;
                     pos += len;
                     self.timestamp = timestamp_value;
                     // Parsers
                     #(
                         if bitfield.get(#i) {
-                            let (len, value) = #itd_paths::ChellValueType::read(&bytes[pos..]).map_err(|_| ParseError::OutOfMemory)?;
+                            let (len, value) = #itd_paths::ChellValueType::read(&bytes[pos..]).map_err(|_| ParseError::OutOfBytes)?;
                             pos += len;
                             self.#names = Some(value);
                         } else {
@@ -214,7 +214,7 @@ pub fn impl_macro(args: Punctuated<Meta, Token![,]>) -> TokenStream {
 
                     #(
                         if any.is::<#paths>() {
-                            let (_, value) = #itd_paths::ChellValueType::read(bytes).map_err(|_| BeaconOperationError::OutOfMemory)?;
+                            let (_, value) = #itd_paths::ChellValueType::read(bytes).map_err(|_| BeaconOperationError::OutOfBytes)?;
                             self.#names = Some(value);
                         } else
                     )*

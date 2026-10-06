@@ -3,7 +3,7 @@ use quote::{ToTokens, quote};
 use syn::{Ident, Index};
 
 fn impl_struct(tm_value_struct: syn::DataStruct) -> TokenStream {
-    let struct_type_parsers = tm_value_struct.fields.iter().enumerate().map(|(i, f)| {
+    let field_readers = tm_value_struct.fields.iter().enumerate().map(|(i, f)| {
         let ident = f
             .ident
             .as_ref()
@@ -18,7 +18,7 @@ fn impl_struct(tm_value_struct: syn::DataStruct) -> TokenStream {
             }
         }
     });
-    let struct_byte_parsers = tm_value_struct.fields.iter().enumerate().map(|(i, f)| {
+    let field_writers = tm_value_struct.fields.iter().enumerate().map(|(i, f)| {
         let ident = f
             .ident
             .as_ref()
@@ -34,20 +34,20 @@ fn impl_struct(tm_value_struct: syn::DataStruct) -> TokenStream {
         fn read(bytes: &[u8]) -> Result<(usize, Self), ChellValueError> {
             let mut pos = 0;
             let value = Self {
-                #(#struct_type_parsers),*
+                #(#field_readers),*
             };
             Ok((pos, value))
         }
         fn write(&self, mem: &mut [u8]) -> Result<usize, ChellValueError> {
             let mut pos = 0;
-            #(#struct_byte_parsers)*
+            #(#field_writers)*
             Ok(pos)
         }
     }
 }
 
 fn impl_enum(tm_value_enum: syn::DataEnum) -> TokenStream {
-    let enum_variant_size_cmp = tm_value_enum.variants.iter().map(|v| {
+    let variant_sizes = tm_value_enum.variants.iter().map(|v| {
         let iter: Box<dyn Iterator<Item = _>> = match &v.fields {
             syn::Fields::Unit => Box::new(std::iter::empty()),
             syn::Fields::Unnamed(unnamed_fields) => Box::new(unnamed_fields.unnamed.iter()),
@@ -63,7 +63,7 @@ fn impl_enum(tm_value_enum: syn::DataEnum) -> TokenStream {
             }
         }
     });
-    let enum_variant_parsers = tm_value_enum.variants.iter().enumerate().map(|(i, v)| {
+    let variant_readers = tm_value_enum.variants.iter().enumerate().map(|(i, v)| {
         let index = i as u8;
         let ident = &v.ident;
         match &v.fields {
@@ -107,7 +107,7 @@ fn impl_enum(tm_value_enum: syn::DataEnum) -> TokenStream {
             }
         }
     });
-    let enum_byte_parsers = tm_value_enum.variants.iter().enumerate().map(|(i, v)| {
+    let variant_writers = tm_value_enum.variants.iter().enumerate().map(|(i, v)| {
         let ident = &v.ident;
         let index = i as u8;
         match &v.fields {
@@ -152,13 +152,13 @@ fn impl_enum(tm_value_enum: syn::DataEnum) -> TokenStream {
     quote! {
         const MAX_BYTE_SIZE: usize = {
             let mut m = 0;
-            #(#enum_variant_size_cmp)*
+            #(#variant_sizes)*
             m
         };
         fn read(bytes: &[u8]) -> Result<(usize, Self), ChellValueError> {
             let mut pos = 1;
-            let value = match bytes.first().ok_or(ChellValueError::OutOfMemory)? {
-                #(#enum_variant_parsers)*
+            let value = match bytes.first().ok_or(ChellValueError::OutOfBytes)? {
+                #(#variant_readers)*
                 _ => return Err(ChellValueError::BadEnumVariant)
             };
             Ok((pos, value))
@@ -166,7 +166,7 @@ fn impl_enum(tm_value_enum: syn::DataEnum) -> TokenStream {
         fn write(&self, mem: &mut [u8]) -> Result<usize, ChellValueError> {
             let mut pos = 1;
             match self {
-                #(#enum_byte_parsers)*
+                #(#variant_writers)*
             }
             Ok(pos)
         }

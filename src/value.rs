@@ -8,9 +8,15 @@ pub mod heapless;
 #[cfg(feature = "nalgebra")]
 pub mod nalgebra;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, thiserror::Error)]
 pub enum ChellValueError {
+    #[error("Out of bytes while reading data")]
+    OutOfBytes,
+    #[error("Out of buffer memory while writing data")]
     OutOfMemory,
+    #[error("Data malformed")]
+    MalformedData,
+    #[error("Enum does not have variant")]
     BadEnumVariant,
 }
 
@@ -68,9 +74,11 @@ pub mod ground {
             s.end()
         }
     }
-    #[derive(Debug)]
+    #[derive(Debug, thiserror::Error)]
     pub enum ReserializeError {
-        ChellValueError(ChellValueError),
-        SerdeError(erased_serde::Error),
+        #[error("Chell error")]
+        ChellValueError(#[from] ChellValueError),
+        #[error("Serde error")]
+        SerdeError(#[from] erased_serde::Error),
     }
 }

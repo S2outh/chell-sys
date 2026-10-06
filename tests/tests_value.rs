@@ -111,3 +111,60 @@ fn chell_value_enums() {
 
     assert_eq!(first_value, first_value_copy);
 }
+
+// Error tests
+
+#[test]
+fn test_int_error_out_of_bytes() {
+    let bytes = [0xFF; 3];
+    let result = i32::read(&bytes);
+    assert_eq!(result.err().unwrap(), ChellValueError::OutOfBytes);
+}
+
+#[test]
+fn test_int_error_out_of_memory() {
+    let mut bytes = [0; 3];
+    let result = i32::MAX.write(&mut bytes);
+    assert_eq!(result.err().unwrap(), ChellValueError::OutOfMemory);
+}
+
+#[test]
+fn test_float_error_out_of_bytes() {
+    let bytes = [0xFF; 3];
+    let result = f32::read(&bytes);
+    assert_eq!(result.err().unwrap(), ChellValueError::OutOfBytes);
+}
+
+#[test]
+fn test_float_error_out_of_memory() {
+    let mut bytes = [0; 3];
+    let result = f32::MAX.write(&mut bytes);
+    assert_eq!(result.err().unwrap(), ChellValueError::OutOfMemory);
+}
+
+#[test]
+fn test_error_malformed_varints() {
+    let bytes = [0xFF; 32];
+    macro_rules! test_varint_malformed {
+        ($type: ty) => {
+            let result = <$type>::read(&bytes);
+            assert_eq!(result.err().unwrap(), ChellValueError::MalformedData);
+        };
+    }
+    test_varint_malformed!(u16);
+    test_varint_malformed!(u32);
+    test_varint_malformed!(u64);
+    test_varint_malformed!(u128);
+
+    test_varint_malformed!(i16);
+    test_varint_malformed!(i32);
+    test_varint_malformed!(i64);
+    test_varint_malformed!(i128);
+}
+
+#[test]
+fn test_error_enums() {
+    let bytes = [10; 2];
+    let result = TestEnum::read(&bytes);
+    assert_eq!(result.err().unwrap(), ChellValueError::BadEnumVariant);
+}

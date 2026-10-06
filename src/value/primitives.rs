@@ -8,7 +8,7 @@ macro_rules! le_bytes_value {
             #[inline]
             fn read(bytes: &[u8]) -> Result<(usize, Self), ChellValueError> {
                 if bytes.len() < Self::MAX_BYTE_SIZE {
-                    return Err(ChellValueError::OutOfMemory);
+                    return Err(ChellValueError::OutOfBytes);
                 }
                 let value = Self::from_le_bytes(bytes[..Self::MAX_BYTE_SIZE].try_into().unwrap());
                 Ok((Self::MAX_BYTE_SIZE, value))
@@ -36,8 +36,11 @@ macro_rules! unsigned_varint_value {
                 let mut pos = 0;
                 let mut v = 0;
                 loop {
+                    if pos > Self::MAX_BYTE_SIZE {
+                        return Err(ChellValueError::MalformedData)
+                    }
                     if bytes.len() <= pos {
-                        return Err(ChellValueError::OutOfMemory)
+                        return Err(ChellValueError::OutOfBytes)
                     }
 
                     // extracting vi byte and continuation flag

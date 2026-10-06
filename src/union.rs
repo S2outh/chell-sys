@@ -27,7 +27,8 @@ pub const fn ceil_to_fd_compat(len: usize) -> Result<usize, UnsupportedValue> {
 }
 
 // Union error types
-#[derive(Debug)]
+#[derive(Debug, PartialEq, thiserror::Error)]
+#[error("Value does not fit in union")]
 pub struct UnsupportedValue;
 
 /// This is a generic wrapper to hold ChellValues as bytes for transfer via fdcan

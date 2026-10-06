@@ -2,7 +2,11 @@
 #![feature(const_cmp)]
 #![feature(const_default)]
 
-use chell::{_internal::InternalChellDefinition, *};
+use chell::{
+    _internal::InternalChellDefinition,
+    beacon::{BeaconOperationError, ParseError},
+    *,
+};
 
 #[derive(ChellValue, Default, Clone, Copy, PartialEq, Debug)]
 #[cfg_attr(feature = "ground", derive(serde::Serialize))]
@@ -26,6 +30,8 @@ mod telemetry {
     struct FirstChellValue;
     #[chv(crate::TestValue)]
     struct SecondChellValue;
+    #[chv(u32)]
+    struct NotInBeacon;
     #[chm(id = 100)]
     mod some_other_mod {
         #[chv(crate::TestVector)]
@@ -115,6 +121,7 @@ fn beacon_reserialization() {
         z: TestValue { val: 1 },
     };
 
+    // serialize
     beacon.first_chell_value = Some(first_value);
     beacon.second_chell_value = Some(second_value);
     beacon.some_other_mod_third_chell_value = Some(third_value);
@@ -216,4 +223,72 @@ fn beacon_insertion_address() {
         address_beacon.to_bytes(&mut crc_ccitt),
         beacon.to_bytes(&mut crc_ccitt)
     );
+}
+
+// Error tests
+
+#[test]
+fn test_insert_def_not_in_beacon() {
+    let mut beacon = TestBeacon::new();
+
+    let value = 1234u32;
+    let result = beacon.insert_slice(&telemetry::NotInBeacon, &to_bytes!(u32, value));
+    assert_eq!(result.err().unwrap(), BeaconOperationError::DefNotInBeacon);
+}
+
+#[test]
+fn test_insert_out_of_bytes() {
+    let mut beacon = TestBeacon::new();
+
+    let bytes = [0xff; 3];
+    let result = beacon.insert_slice(&telemetry::FirstChellValue, &bytes);
+    assert_eq!(result.err().unwrap(), BeaconOperationError::OutOfBytes);
+}
+
+#[test]
+fn test_parse_wrong_id() {
+    let mut beacon = TestBeacon::new();
+
+    let bytes = [0xFF; 5];
+    let result = beacon.from_bytes(&bytes, &mut crc_ccitt);
+    assert_eq!(result.err().unwrap(), ParseError::WrongId);
+}
+
+#[test]
+fn test_parse_out_of_bytes() {
+    let mut beacon = TestBeacon::new();
+
+    let bytes = [0xFF; 3];
+    let result = beacon.from_bytes(&bytes, &mut crc_ccitt);
+    assert_eq!(result.err().unwrap(), ParseError::OutOfBytes);
+}
+
+#[test]
+fn test_parse_bad_crc() {
+    let mut beacon = TestBeacon::new();
+
+    let first_value = 1234u32;
+    let second_value = TestValue { val: 3 };
+    let third_value = TestVector {
+        x: 3,
+        y: 3.3,
+        z: TestValue { val: 1 },
+    };
+
+    // serialize
+    beacon.first_chell_value = Some(first_value);
+    beacon.second_chell_value = Some(second_value);
+    beacon.some_other_mod_third_chell_value = Some(third_value);
+
+    let bytes = beacon.to_bytes(&mut crc_ccitt);
+    let mut bytes_copy = [0u8; 128];
+    bytes_copy[..bytes.len()].copy_from_slice(bytes);
+
+    // change random byte
+    bytes_copy[5] = 0x12;
+
+    // deserialize
+    let mut beacon_copy = TestBeacon::new();
+    let result = beacon_copy.from_bytes(&bytes_copy, &mut crc_ccitt);
+    assert_eq!(result.err().unwrap(), ParseError::BadCRC);
 }

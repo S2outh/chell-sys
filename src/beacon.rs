@@ -2,17 +2,22 @@ use crate::ChellDefinition;
 pub mod bitfield;
 
 // Beacon error types
-#[derive(Debug)]
+#[derive(Debug, PartialEq, thiserror::Error)]
 pub enum BeaconOperationError {
+    #[error("This beacon does not contain the provided definition")]
     DefNotInBeacon,
-    OutOfMemory,
+    #[error("Out of bytes while reading data")]
+    OutOfBytes,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, thiserror::Error)]
 pub enum ParseError {
+    #[error("Wrong beacon Id")]
     WrongId,
+    #[error("Bad CRC")]
     BadCRC,
-    OutOfMemory,
+    #[error("Out of bytes while reading data")]
+    OutOfBytes,
 }
 
 // Dynamic beacon trait

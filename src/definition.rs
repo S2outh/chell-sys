@@ -4,7 +4,8 @@ use core::any::Any;
 pub mod can_id;
 
 // Definition error types
-#[derive(Debug)]
+#[derive(Debug, PartialEq, thiserror::Error)]
+#[error("Definition not found in collection")]
 pub struct NotFoundError;
 
 pub trait ChellDefinition: Any {
