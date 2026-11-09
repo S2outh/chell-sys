@@ -150,15 +150,22 @@ fn generate_struct(
         .find(|v| v.path().is_ident(ID_MACRO_IDENT))
         .map(|v| v.parse_args().expect("could not parse id macro"));
 
-    let _is_command = v
+    let is_command = v
         .attrs
         .iter()
         .any(|v| v.path().is_ident(COMMAND_MACRO_IDENT));
 
     let docs = v.attrs.iter().find(|v| v.path().is_ident(DOC_MACRO_IDENT));
 
+    // verification
+    assert!(
+        !is_command || parser_args.is_empty(),
+        "commands don't have parsers"
+    );
+
     // this definitions name
     let def = &v.ident;
+    // the name of this definitions parser
     let def_parser = format_ident!("{}Parser", def);
     // Parse rust address of the struct inside the telemetry module tree
     let def_addr: TokenStream = address
@@ -190,12 +197,23 @@ fn generate_struct(
         .map(|i| i.to_string())
         .intersperse(String::from("."))
         .collect();
+    // this definitions name
     // Parse address
     let address = format!("{}.{}", str_base_addr, def.to_string().to_snake_case());
 
     // Parse doc info
     let label = def.to_string().to_title_case();
-    // TODO
+    let parser_docs = parser_args
+        .iter()
+        .map(|ParserMacroArgs { name, doctype, .. }| {
+            let label = format!("{} - {}", label, name);
+            quote! {
+                #[doc = "[[parserd]]"]
+                #[doc = concat!("label = {}", #label)]
+                #[doc = concat!("address = {}.{}", #address, stringify!(#name))]
+                #[doc = concat!("type = {}", #doctype)]
+            }
+        });
 
     // Impl Chell Parsers
     let parser_funcs = parser_args
@@ -286,6 +304,9 @@ fn generate_struct(
             #[doc = concat!("label = {}", #label)]
             #[doc = concat!("address = {}", #address)]
             #[doc = concat!("type = {}", #doctype)]
+            #[doc = concat!("command = {}", #is_command)]
+            #[doc = ""]
+            #(#parser_docs)*
             #[doc = "```"]
             pub struct #def;
             impl InternalChellDefinition for #def {
