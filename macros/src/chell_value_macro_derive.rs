@@ -46,7 +46,14 @@ fn impl_struct(tm_value_struct: syn::DataStruct) -> TokenStream {
     }
 }
 
-fn impl_enum(tm_value_enum: syn::DataEnum) -> TokenStream {
+fn impl_enum(tm_value_enum: syn::DataEnum, attrs: Vec<syn::Attribute>) -> TokenStream {
+    // parse tag type from #[repr]. isize is default.
+    let tag_type: syn::Type = attrs
+        .iter()
+        .find(|attr| attr.path().is_ident("repr"))
+        .map(|attr| attr.parse_args().unwrap())
+        .unwrap_or(syn::parse_quote!(isize));
+
     let variant_sizes = tm_value_enum.variants.iter().map(|v| {
         let iter: Box<dyn Iterator<Item = _>> = match &v.fields {
             syn::Fields::Unit => Box::new(std::iter::empty()),
@@ -57,15 +64,18 @@ fn impl_enum(tm_value_enum: syn::DataEnum) -> TokenStream {
             .map(|f| &f.ty)
             .map(|ty| quote! { <#ty>::MAX_BYTE_SIZE });
         quote! {
-            let variant_size = 1usize #(+ #sizes)*;
+            let variant_size = <#tag_type>::MAX_BYTE_SIZE #(+ #sizes)*;
             if variant_size > m {
                 m = variant_size;
             }
         }
     });
     let variant_readers = tm_value_enum.variants.iter().enumerate().map(|(i, v)| {
-        let index = i as u8;
         let ident = &v.ident;
+        let index = syn::LitInt::new(
+            &format!("{}{}", i, tag_type.to_token_stream()),
+            proc_macro2::Span::call_site(),
+        );
         match &v.fields {
             syn::Fields::Unit => {
                 quote! {
@@ -109,12 +119,15 @@ fn impl_enum(tm_value_enum: syn::DataEnum) -> TokenStream {
     });
     let variant_writers = tm_value_enum.variants.iter().enumerate().map(|(i, v)| {
         let ident = &v.ident;
-        let index = i as u8;
+        let index = syn::LitInt::new(
+            &format!("{}{}", i, tag_type.to_token_stream()),
+            proc_macro2::Span::call_site(),
+        );
         match &v.fields {
             syn::Fields::Unit => {
                 quote! {
                     Self::#ident => {
-                        *(mem.first_mut().ok_or(ChellValueError::OutOfMemory)?) = #index;
+                        pos += #index.write(mem)?;
                     }
                 }
             }
@@ -128,7 +141,7 @@ fn impl_enum(tm_value_enum: syn::DataEnum) -> TokenStream {
                 });
                 quote! {
                     Self::#ident(#(#field_idents),*) => {
-                        *(mem.first_mut().ok_or(ChellValueError::OutOfMemory)?) = #index;
+                        pos += #index.write(mem)?;
                         #(#field_parsers)*
                     }
                 }
@@ -142,7 +155,7 @@ fn impl_enum(tm_value_enum: syn::DataEnum) -> TokenStream {
                 });
                 quote! {
                     Self::#ident{#(#field_idents),*} => {
-                        *(mem.first_mut().ok_or(ChellValueError::OutOfMemory)?) = #index;
+                        pos += #index.write(mem)?;
                         #(#field_parsers)*
                     }
                 }
@@ -156,15 +169,15 @@ fn impl_enum(tm_value_enum: syn::DataEnum) -> TokenStream {
             m
         };
         fn read(bytes: &[u8]) -> Result<(usize, Self), ChellValueError> {
-            let mut pos = 1;
-            let value = match bytes.first().ok_or(ChellValueError::OutOfBytes)? {
+            let (mut pos, tag) = #tag_type::read(bytes)?;
+            let value = match tag {
                 #(#variant_readers)*
                 _ => return Err(ChellValueError::BadEnumVariant)
             };
             Ok((pos, value))
         }
         fn write(&self, mem: &mut [u8]) -> Result<usize, ChellValueError> {
-            let mut pos = 1;
+            let mut pos = 0;
             match self {
                 #(#variant_writers)*
             }
@@ -179,7 +192,7 @@ pub fn impl_macro(ast: syn::DeriveInput) -> TokenStream {
 
     let body = match ast.data {
         syn::Data::Struct(tm_value_struct) => impl_struct(tm_value_struct),
-        syn::Data::Enum(tm_value_enum) => impl_enum(tm_value_enum),
+        syn::Data::Enum(tm_value_enum) => impl_enum(tm_value_enum, ast.attrs),
         syn::Data::Union(_) => unimplemented!("unions are not supported as chell values"),
     };
 

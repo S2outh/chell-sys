@@ -1,4 +1,5 @@
 #![feature(const_trait_impl)]
+
 use chell::*;
 
 #[cfg(feature = "ground")]
@@ -25,6 +26,7 @@ pub struct GenericValue<T: ChellValue> {
 }
 
 #[derive(ChellValue, Default, PartialEq, Debug, Clone, Copy)]
+#[repr(u8)]
 pub enum TestEnum {
     #[default]
     EmptyVar,
@@ -33,6 +35,11 @@ pub enum TestEnum {
     ThirdVar {
         test_value: TestValue,
     },
+}
+
+#[derive(ChellValue)]
+pub enum OtherTestEnum {
+    EmptyVar,
 }
 
 #[derive(ChellValue, Default, PartialEq, Debug, Clone, Copy)]
@@ -167,4 +174,21 @@ fn test_error_enums() {
     let bytes = [10; 2];
     let result = TestEnum::read(&bytes);
     assert_eq!(result.err().unwrap(), ChellValueError::BadEnumVariant);
+}
+
+#[test]
+fn test_struct_sizes() {
+    assert_eq!(
+        i16::MAX_BYTE_SIZE + f32::MAX_BYTE_SIZE + u8::MAX_BYTE_SIZE + u32::MAX_BYTE_SIZE,
+        TestVector::MAX_BYTE_SIZE
+    );
+}
+
+#[test]
+fn test_enum_sizes() {
+    assert_eq!(
+        u8::MAX_BYTE_SIZE + u8::MAX_BYTE_SIZE + u32::MAX_BYTE_SIZE,
+        TestEnum::MAX_BYTE_SIZE
+    );
+    assert_eq!(usize::MAX_BYTE_SIZE, OtherTestEnum::MAX_BYTE_SIZE);
 }
