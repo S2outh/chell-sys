@@ -1,13 +1,20 @@
 [package]
 name = "chell"
-version = "8.3.0"
+version = "9.0.0"
 edition = "2024"
 
 [features]
+default = [ "xsize-32" ]
+
 ground = ["dep:erased-serde", "dep:serde", "macros/ground"]
 
 heapless = ["dep:heapless"]
 nalgebra = ["dep:nalgebra"]
+
+xsize-16 = []
+xsize-32 = []
+xsize-64 = []
+xsize-128 = []
 
 [dependencies]
 macros = { package = "chell-macros", path = "./macros/" }

@@ -2,7 +2,7 @@
 set -eu
 
 echo "Running cargo test..."
-cargo test --all-features
+cargo test --features ground --features heapless --features nalgebra
 
 echo "Running cargo fmt..."
 cargo fmt --all --check

@@ -1,174 +1,161 @@
 use std::array::from_fn;
 use std::iter::{once, zip};
 
-use crate::macro_utils::{Either, PartitionMapExt};
-
-use heck::ToSnakeCase;
+use heck::{ToSnakeCase, ToTitleCase};
 use proc_macro2::TokenStream;
 use quote::{ToTokens, format_ident, quote};
 use syn::parse::{Parse, ParseStream};
-use syn::{Expr, Ident, Path, Type};
-use syn::{Item, Meta, Token, punctuated::Punctuated};
+use syn::{Expr, Ident, MetaNameValue, Type};
+use syn::{Item, Token};
 
-const CHELL_VALUE_MACRO_NAME: &str = "chv";
-const CHELL_MODULE_MACRO_NAME: &str = "chm";
+const TYPE_MACRO_IDENT: &str = "def";
+const PARSER_MACRO_IDENT: &str = "parser";
+const ID_MACRO_IDENT: &str = "id";
+const COMMAND_MACRO_IDENT: &str = "command";
+const DOC_MACRO_IDENT: &str = "doc";
 
-struct TmFunctionArgs {
+struct DefMacroArgs {
+    ty: Type,
+    doctype: Option<String>,
+}
+
+impl Parse for DefMacroArgs {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        let ty: Type = input.parse()?;
+        let mut args = Self { ty, doctype: None };
+        while !input.is_empty() {
+            input.parse::<Token![,]>()?;
+            let kv_pair: MetaNameValue = input.parse()?;
+            let key = kv_pair.path.get_ident().unwrap().to_string();
+            let value = kv_pair.value;
+            match key.as_str() {
+                "doc" => {
+                    let Expr::Lit(syn::ExprLit {
+                        lit: syn::Lit::Str(doctype),
+                        ..
+                    }) = value
+                    else {
+                        return Err(syn::Error::new(input.span(), "Wrong expression"));
+                    };
+                    args.doctype = Some(doctype.value());
+                }
+                _ => return Err(syn::Error::new(input.span(), "Wrong expression")),
+            }
+        }
+        Ok(args)
+    }
+}
+
+struct ParserMacroArgs {
+    name: Ident,
     ty: Type,
     expr: Expr,
-    ground_only: bool,
+    doctype: Option<String>,
 }
 
-impl Parse for TmFunctionArgs {
+impl Parse for ParserMacroArgs {
     fn parse(input: ParseStream) -> syn::Result<Self> {
+        let name: Ident = input.parse()?;
+        input.parse::<Token![->]>()?;
         let ty: Type = input.parse()?;
-        input.parse::<Token![,]>()?;
         let expr: Expr = input.parse()?;
-        let ground_only = if input.peek(Token![,]) {
-            input.parse::<Token![,]>()?;
-            let ground: Ident = input.parse()?;
-            if ground == "ground" { true } else { false }
-        } else {
-            false
-        };
-        Ok(Self {
+        let mut args = Self {
+            name,
             ty,
             expr,
-            ground_only,
-        })
-    }
-}
-
-struct TmValueMacroInput {
-    pub ty: Type,
-    pub id_range: Option<u16>,
-    pub paths: Vec<Path>,
-    pub types: Vec<Type>,
-    pub funcs: Vec<Expr>,
-}
-
-impl Parse for TmValueMacroInput {
-    fn parse(input: ParseStream) -> syn::Result<Self> {
-        // Parse first argument as a Type
-        let ty: Type = input.parse()?;
-
-        // If there's nothing else, return early
-        if input.is_empty() {
-            return Ok(Self {
-                ty,
-                id_range: None,
-                paths: Vec::new(),
-                types: Vec::new(),
-                funcs: Vec::new(),
-            });
-        }
-
-        // Expect comma after type
-        input.parse::<Token![,]>()?;
-
-        // Parse remaining metas
-        let metas = Punctuated::<Meta, Token![,]>::parse_terminated(input)?;
-        let (lists, name_values): (Vec<_>, Vec<_>) = metas.iter().partition_map(|v| match v {
-            Meta::List(v) => Either::Left(v),
-            Meta::NameValue(v) => Either::Right(v),
-            _ => panic!("no paths allowed here"),
-        });
-
-        // id ranges
-        let id_range = name_values
-            .iter()
-            .find(|v| {
-                if let Some(i) = v.path.get_ident() {
-                    i == "id_range"
-                } else {
-                    false
+            doctype: None,
+        };
+        while !input.is_empty() {
+            input.parse::<Token![,]>()?;
+            let kv_pair: MetaNameValue = input.parse()?;
+            let key = kv_pair.path.get_ident().unwrap().to_string();
+            let value = kv_pair.value;
+            match key.as_str() {
+                "doc" => {
+                    let Expr::Lit(syn::ExprLit {
+                        lit: syn::Lit::Str(doctype),
+                        ..
+                    }) = value
+                    else {
+                        return Err(syn::Error::new(input.span(), "Wrong expression"));
+                    };
+                    args.doctype = Some(doctype.value());
                 }
-            })
-            .map(|v| {
-                let syn::Expr::Lit(id_expr) = v.value.clone() else {
-                    panic!("wrong macro attributes")
-                };
-                let syn::Lit::Int(id_lit) = id_expr.lit else {
-                    panic!("wrong macro attributes")
-                };
-                id_lit.base10_parse().expect("id_range should be u16")
-            });
-
-        // parsing functions
-        let content: Vec<(Path, TmFunctionArgs)> = lists
-            .into_iter()
-            .map(|v| Ok((v.path.clone(), v.parse_args()?)))
-            .collect::<Result<_, syn::Error>>()?;
-        // Filter out ground only functions if applicable
-        let (paths, rest): (_, Vec<_>) = content
-            .into_iter()
-            .filter(|(_, arg)| cfg!(feature = "ground") || !arg.ground_only)
-            .unzip();
-        // separate types from actual function bodies
-        let (types, funcs) = rest
-            .into_iter()
-            .map(|v| {
-                let TmFunctionArgs { ty, expr, .. } = v;
-                (ty, expr)
-            })
-            .unzip();
-
-        Ok(Self {
-            ty,
-            id_range,
-            paths,
-            types,
-            funcs,
-        })
+                _ => return Err(syn::Error::new(input.span(), "Wrong expression")),
+            }
+        }
+        Ok(args)
     }
 }
 
-#[derive(Default, serde::Serialize)]
-struct ParsingResultDocumentation {
-    address: String,
-    type_name: String,
+struct IdMacroArgs {
+    range: u16,
 }
 
-#[derive(Default, serde::Serialize)]
-struct DefinitionDocumentation {
-    address: String,
-    id: String,
-    type_name: String,
-    description: String,
-    parsed_addresses: Vec<ParsingResultDocumentation>,
-}
-
-#[derive(Default, serde::Serialize)]
-struct FullDocumentation {
-    base_name: String,
-    definitions: Vec<DefinitionDocumentation>,
+impl Parse for IdMacroArgs {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        let mut args: Self = Self { range: 0 };
+        while !input.is_empty() {
+            if input.peek(Token![,]) {
+                input.parse::<Token![,]>()?;
+            }
+            let kv_pair: MetaNameValue = input.parse()?;
+            let key = kv_pair.path.get_ident().unwrap().to_string();
+            let value = kv_pair.value;
+            match key.as_str() {
+                "range" => {
+                    let Expr::Lit(syn::ExprLit {
+                        lit: syn::Lit::Int(doctype),
+                        ..
+                    }) = value
+                    else {
+                        return Err(syn::Error::new(input.span(), "Wrong expression"));
+                    };
+                    args.range = doctype.base10_parse().unwrap();
+                }
+                _ => return Err(syn::Error::new(input.span(), "Wrong expression")),
+            }
+        }
+        Ok(args)
+    }
 }
 
 fn generate_struct(
     address: &Vec<syn::Ident>,
     id: &mut u16,
-    docs: &mut Vec<DefinitionDocumentation>,
     v: &syn::ItemStruct,
 ) -> [TokenStream; 4] {
-    // Parse "tmv" attribute
-    let args: TmValueMacroInput = v
+    // Parse attributes
+    let DefMacroArgs {
+        ty: def_type,
+        doctype,
+    } = v
         .attrs
         .iter()
-        .find(|attr| attr.path().is_ident(CHELL_VALUE_MACRO_NAME))
-        .expect(&format!(
-            "Struct {} has no {} attribute",
-            &v.ident, CHELL_VALUE_MACRO_NAME
-        ))
+        .find(|v| v.path().is_ident(TYPE_MACRO_IDENT))
+        .expect("No type macro found")
         .parse_args()
-        .expect(&format!(
-            "Could not parse {} attribute parameters",
-            CHELL_VALUE_MACRO_NAME
-        ));
+        .expect("could not parse type macro");
 
-    let tmty: Type = args.ty;
-    let paths = args.paths;
-    let types = args.types;
-    let funcs = args.funcs;
+    let parser_args: Vec<ParserMacroArgs> = v
+        .attrs
+        .iter()
+        .filter(|v| v.path().is_ident(PARSER_MACRO_IDENT))
+        .map(|v| v.parse_args().expect("could not parse parser macro"))
+        .collect();
+
+    let id_args: Option<IdMacroArgs> = v
+        .attrs
+        .iter()
+        .find(|v| v.path().is_ident(ID_MACRO_IDENT))
+        .map(|v| v.parse_args().expect("could not parse id macro"));
+
+    let _is_command = v
+        .attrs
+        .iter()
+        .any(|v| v.path().is_ident(COMMAND_MACRO_IDENT));
+
+    let docs = v.attrs.iter().find(|v| v.path().is_ident(DOC_MACRO_IDENT));
 
     // this definitions name
     let def = &v.ident;
@@ -183,8 +170,8 @@ fn generate_struct(
         .collect();
 
     // Parse type of the ChellValue the struct references
-    let (tm_id, tm_id_match, increment) = match args.id_range {
-        Some(range) => {
+    let (def_id, def_id_match, increment) = match id_args {
+        Some(IdMacroArgs { range }) => {
             let end = *id + range as u16;
             (
                 quote! { CanID::Range(#id, #range) },
@@ -205,51 +192,32 @@ fn generate_struct(
         .collect();
     // Parse address
     let address = format!("{}.{}", str_base_addr, def.to_string().to_snake_case());
-    // generated documentation
-    let mut doc = DefinitionDocumentation::default();
-    doc.address = address.clone();
-    doc.id = tm_id_match.to_token_stream().to_string();
-    if let Some(description) = v
-        .attrs
+
+    // Parse doc info
+    let label = def.to_string().to_title_case();
+    // TODO
+
+    // Impl Chell Parsers
+    let parser_funcs = parser_args
         .iter()
-        .find(|attr| attr.path().is_ident("doc"))
-        .map(|v| {
-            let Meta::NameValue(v) = &v.meta else {
-                panic!()
-            };
-            v.value.to_token_stream().to_string()
-        })
-    {
-        doc.description = description;
-    }
-
-    for (addr, ty) in paths.iter().zip(types.iter()) {
-        let mut parsing_result_doc = ParsingResultDocumentation::default();
-        parsing_result_doc.address = format!("{}.{}", address, &addr.to_token_stream().to_string());
-        parsing_result_doc.type_name = ty.to_token_stream().to_string();
-        doc.parsed_addresses.push(parsing_result_doc);
-    }
-    doc.type_name = tmty.to_token_stream().to_string();
-
-    let str_doc = serde_json::to_string(&doc).unwrap_or(String::new());
-    docs.push(doc);
-
-    // Parsers
-    let parser = if funcs.len() > 0 {
+        .map(|ParserMacroArgs { name, ty, expr, .. }| {
+            quote! {
+                pub fn #name(&self) -> #ty {
+                    (#expr)(&self.0)
+                }
+            }
+        });
+    let parser = if parser_funcs.len() > 0 {
         Some(quote! {
-            pub struct #def_parser(#tmty);
-            impl ParsableChellValue<#def> for #tmty {
+            pub struct #def_parser(#def_type);
+            impl ParsableChellValue<#def> for #def_type {
                 type Parser = #def_parser;
                 fn parser(self, _def: #def) -> Self::Parser {
                     #def_parser(self)
                 }
             }
             impl #def_parser {
-                #(
-                    pub fn #paths(&self) -> #types {
-                        (#funcs)(&self.0)
-                    }
-                )*
+                #(#parser_funcs)*
             }
         })
     } else {
@@ -257,21 +225,27 @@ fn generate_struct(
     };
 
     // Ground serialization funktionality
-    let serializer_func = if cfg!(feature = "ground") {
+    let serializer_funcs = parser_args
+        .iter()
+        .map(|ParserMacroArgs { name, expr, .. }| {
+            quote! {{
+                let converted_value = (#expr)(&self);
+                let gt_value = GroundTelemetry::new(timestamp, &converted_value);
+                let bytes = serializer(&gt_value)?;
+                serialized_pairs.push((concat!(#address, ".", stringify!(#name)), bytes));
+            }}
+        });
+    let serializer = if cfg!(feature = "ground") {
         Some(quote! {
-            impl SerializableChellValue<#def> for #tmty {
+            impl SerializableChellValue<#def> for #def_type {
                 fn serialize_ground(self,
                     _def: #def,
                     timestamp: &dyn Serialize,
                     serializer: &dyn Fn(&dyn Serialize) -> Result<Vec<u8>, Error>
                 ) -> Result<Vec<(&'static str, Vec<u8>)>, Error> {
                     let mut serialized_pairs = Vec::new();
-                    #({
-                        let converted_value = (#funcs)(&self);
-                        let gt_value = GroundTelemetry::new(timestamp, &converted_value);
-                        let bytes = serializer(&gt_value)?;
-                        serialized_pairs.push((concat!(#address, ".", stringify!(#paths)), bytes));
-                    })*
+
+                    #(#serializer_funcs)*
 
                     let raw_gt_value = GroundTelemetry::new(timestamp, &self);
                     let raw_bytes = serializer(&raw_gt_value)?;
@@ -291,7 +265,7 @@ fn generate_struct(
                 timestamp: &dyn Serialize,
                 serializer: &dyn Fn(&dyn Serialize) -> Result<Vec<u8>, Error>
             ) -> Result<Vec<(&'static str, Vec<u8>)>, ReserializeError> {
-                let (_, value): (_, #tmty) = <#tmty>::read(bytes)
+                let (_, value): (_, #def_type) = <#def_type>::read(bytes)
                     .map_err(|e| ReserializeError::ChellValueError(e))?;
                 let serialized_pairs = value.serialize_ground(Self, timestamp, serializer)
                     .map_err(|e| ReserializeError::SerdeError(e))?;
@@ -305,13 +279,20 @@ fn generate_struct(
     };
     [
         quote! {
-            #[doc = #str_doc]
+            #[doc = concat!("# {}", stringify!(#def))]
+            #docs
+            #[doc = ""]
+            #[doc = "```tooling"]
+            #[doc = concat!("label = {}", #label)]
+            #[doc = concat!("address = {}", #address)]
+            #[doc = concat!("type = {}", #doctype)]
+            #[doc = "```"]
             pub struct #def;
             impl InternalChellDefinition for #def {
-                type ChellValueType = #tmty;
+                type ChellValueType = #def_type;
             }
             impl ChellDefinition for #def {
-                fn id(&self) -> CanID { #tm_id }
+                fn id(&self) -> CanID { #def_id }
                 fn address(&self) -> &str { #address }
                 fn as_any(&self) -> &dyn Any { self }
                 #reserializer_func
@@ -320,21 +301,21 @@ fn generate_struct(
                 pub fn equals(&self, other: &dyn ChellDefinition) -> bool {
                     self.type_id() == other.type_id()
                 }
-                pub fn serialize(&self, value: &#tmty) -> Result<[u8; Self::MAX_BYTE_SIZE], ChellValueError> {
+                pub fn serialize(&self, value: &#def_type) -> Result<[u8; Self::MAX_BYTE_SIZE], ChellValueError> {
                     let mut mem = [0; _];
                     value.write(&mut mem)?;
                     Ok(mem)
                 }
-                pub fn deserialize(&self, bytes: &[u8]) -> Result<#tmty, ChellValueError> {
-                    let (_, v) = <#tmty>::read(bytes)?;
+                pub fn deserialize(&self, bytes: &[u8]) -> Result<#def_type, ChellValueError> {
+                    let (_, v) = <#def_type>::read(bytes)?;
                     Ok(v)
                 }
             }
             #parser
-            #serializer_func
+            #serializer
         },
         quote! {
-            #tm_id_match => Ok(&#def_addr),
+            #def_id_match => Ok(&#def_addr),
         },
         quote! {
             #address => Ok(&#def_addr),
@@ -348,47 +329,8 @@ fn generate_struct(
 fn generate_module_recursive(
     address: &Vec<syn::Ident>,
     id: &mut u16,
-    docs: &mut Vec<DefinitionDocumentation>,
     v: &syn::ItemMod,
 ) -> [TokenStream; 4] {
-    // Parse "tmm" attribute
-    if let Some(module_id) = v
-        .attrs
-        .iter()
-        .find(|attr| attr.path().is_ident(CHELL_MODULE_MACRO_NAME))
-        .map(|v| {
-            v.parse_args_with(Punctuated::<Meta, Token![,]>::parse_separated_nonempty)
-                .expect(&format!(
-                    "Could not parse {} attribute parameters",
-                    CHELL_MODULE_MACRO_NAME
-                ))
-                .iter()
-                .filter_map(|m| m.require_name_value().ok())
-                .filter(|m| m.path.get_ident().filter(|p| *p == "id").is_some())
-                .map(|m| {
-                    if let syn::Expr::Lit(value) = &m.value {
-                        value
-                    } else {
-                        panic!("unexpected attribute value type")
-                    }
-                })
-                .map(|m| {
-                    if let syn::Lit::Int(value) = &m.lit {
-                        value
-                    } else {
-                        panic!("unexpected attribute value type")
-                    }
-                })
-                .next()
-                .map(|lit| lit.base10_parse().unwrap())
-        })
-        .flatten()
-    {
-        if *id > module_id {
-            panic!("like schedules, ids should only move in one direction");
-        }
-        *id = module_id;
-    }
     let start_id = *id;
 
     let module_name = v.ident.clone();
@@ -402,8 +344,7 @@ fn generate_module_recursive(
     let [module_content, id_getters, address_getters, byte_lengths] = generate_tree(
         address,
         id,
-        docs,
-        &v.content.as_ref().expect("module sould not be empty").1,
+        &v.content.as_ref().expect("module should not be empty").1,
     );
 
     [
@@ -439,17 +380,12 @@ fn generate_module_recursive(
     ]
 }
 
-fn generate_tree(
-    address: Vec<syn::Ident>,
-    id: &mut u16,
-    docs: &mut Vec<DefinitionDocumentation>,
-    items: &Vec<Item>,
-) -> [TokenStream; 4] {
+fn generate_tree(address: Vec<syn::Ident>, id: &mut u16, items: &Vec<Item>) -> [TokenStream; 4] {
     items
         .iter()
         .map(|v| match v {
-            syn::Item::Struct(v) => generate_struct(&address, id, docs, v),
-            syn::Item::Mod(v) => generate_module_recursive(&address, id, docs, v),
+            syn::Item::Struct(v) => generate_struct(&address, id, v),
+            syn::Item::Mod(v) => generate_module_recursive(&address, id, v),
             _ => panic!("module should only contain other modules and structs"),
         })
         .fold(from_fn(|_| TokenStream::new()), |acc, src| {
@@ -476,17 +412,8 @@ pub fn impl_macro(ast: syn::Item, mut id: u16, chell_address: syn::Path) -> Toke
     let start_id = id;
     let id_ref = &mut id;
 
-    let mut doc = FullDocumentation::default();
-    doc.base_name = root_mod_ident.to_string();
-
-    let [module_content, id_getters, address_getters, byte_lengths] = generate_tree(
-        vec![root_mod_ident.clone()],
-        id_ref,
-        &mut doc.definitions,
-        &root_mod_content.1,
-    );
-
-    let str_doc = serde_json::to_string(&doc).unwrap_or(String::new());
+    let [module_content, id_getters, address_getters, byte_lengths] =
+        generate_tree(vec![root_mod_ident.clone()], id_ref, &root_mod_content.1);
 
     let serializer_imports = if cfg!(feature = "ground") {
         Some(quote! {
@@ -499,7 +426,6 @@ pub fn impl_macro(ast: syn::Item, mut id: u16, chell_address: syn::Path) -> Toke
 
     quote! {
         pub mod #root_mod_ident {
-            pub const __TOOLING_METADATA: &str = #str_doc;
             use super::*;
             use #chell_address::{definition::*, value::*, _internal::*};
             use core::any::Any;

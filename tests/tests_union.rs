@@ -22,21 +22,27 @@ pub struct TestVector {
 
 #[chell_definition(id = 0)]
 mod telemetry {
-    #[chv(u32)]
+    #[def(u32)]
     struct FirstChellValue;
-    #[chv(crate::TestVector)]
+
+    #[def(crate::TestVector)]
     struct SecondChellValue;
-    #[chv(Option<i32>)]
+
+    #[def(Option<i32>)]
     struct OptionTest;
-    #[chv([i16; 2])]
+
+    #[def([i16; 2])]
     struct ArrayTest;
-    #[chm(id = 100)]
+
     mod some_other_mod {
-        #[chv(u64)]
+        #[def(u64)]
         struct ThirdChellValue;
-        #[chv(i32, id_range = 5)]
+
+        #[def(i32)]
+        #[id(range = 5)]
         struct FourthChellValue;
-        #[chv(crate::TestValue)]
+
+        #[def(crate::TestValue)]
         struct FifthChellValue;
     }
 }
@@ -64,7 +70,7 @@ fn partial_container_creation() {
 
     let container =
         PartialTestContainer::new(&telemetry::some_other_mod::FourthChellValue, &i32::MAX).unwrap();
-    assert_eq!(container.id().get(3).unwrap(), 104);
+    assert_eq!(container.id().get(3).unwrap(), 8);
 
     assert_eq!(container.bytes().len(), 5);
 }

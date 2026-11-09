@@ -22,15 +22,14 @@ pub struct TestVector {
 #[chell_definition(id = 0)]
 mod telemetry {
     /// Test doc
-    #[chv(i64)]
+    #[def(i64)]
     struct Timestamp;
-    #[chv(u32)]
+    #[def(u32)]
     struct FirstChellValue;
-    #[chv(crate::TestValue)]
+    #[def(crate::TestValue)]
     struct SecondChellValue;
-    #[chm(id = 100)]
     mod some_other_mod {
-        #[chv(crate::TestVector)]
+        #[def(crate::TestVector)]
         struct ThirdChellValue;
     }
 }

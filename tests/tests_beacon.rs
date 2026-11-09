@@ -24,17 +24,22 @@ pub struct TestVector {
 
 #[chell_definition(id = 0)]
 mod telemetry {
-    #[chv(i64)]
+
+    #[def(i64)]
     struct Timestamp;
-    #[chv(u32)]
+
+    #[def(u32)]
     struct FirstChellValue;
-    #[chv(crate::TestValue)]
+
+    #[def(crate::TestValue)]
     struct SecondChellValue;
-    #[chv(u32)]
+
+    #[def(u32)]
     struct NotInBeacon;
-    #[chm(id = 100)]
+
     mod some_other_mod {
-        #[chv(crate::TestVector)]
+
+        #[def(crate::TestVector)]
         struct ThirdChellValue;
     }
 }
@@ -168,7 +173,7 @@ fn beacon_insertion_id() {
         .unwrap();
     id_beacon
         .insert_slice(
-            telemetry::from_id(100).unwrap(),
+            telemetry::from_id(4).unwrap(),
             &to_bytes!(TestVector, third_value),
         )
         .unwrap();

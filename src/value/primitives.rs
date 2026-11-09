@@ -115,6 +115,23 @@ macro_rules! signed_varint_value {
     )*};
 }
 
+macro_rules! alias_value {
+    ($alias:ident, $type:ident) => {
+        impl ChellValue for $type {
+            const MAX_BYTE_SIZE: usize = $alias::MAX_BYTE_SIZE;
+            #[inline]
+            fn read(bytes: &[u8]) -> Result<(usize, Self), ChellValueError> {
+                let (len, v) = $alias::read(bytes)?;
+                Ok((len, v as Self))
+            }
+            #[inline]
+            fn write(&self, mem: &mut [u8]) -> Result<usize, ChellValueError> {
+                (*self as $alias).write(mem)
+            }
+        }
+    };
+}
+
 // Values always encoded as plain little endian
 le_bytes_value!(u8, i8, f32, f64);
 
@@ -128,3 +145,24 @@ const VI_BYTE_MASK: u8 = (1 << BITS_PER_VI_BYTE) - 1;
 
 unsigned_varint_value!(u16, u32, u64, u128);
 signed_varint_value!((i16, u16), (i32, u32), (i64, u64), (i128, u128));
+
+// Usize
+#[cfg(feature = "xsize-16")]
+alias_value!(u16, usize);
+#[cfg(feature = "xsize-16")]
+alias_value!(i16, isize);
+
+#[cfg(feature = "xsize-32")]
+alias_value!(u32, usize);
+#[cfg(feature = "xsize-32")]
+alias_value!(i32, isize);
+
+#[cfg(feature = "xsize-64")]
+alias_value!(u64, usize);
+#[cfg(feature = "xsize-64")]
+alias_value!(i64, isize);
+
+#[cfg(feature = "xsize-128")]
+alias_value!(u128, usize);
+#[cfg(feature = "xsize-128")]
+alias_value!(i128, isize);

@@ -1,9 +1,7 @@
 #![feature(iter_intersperse)]
-#![feature(extend_one)]
 mod beacon_macro;
 mod chell_definition_macro_attribute;
 mod chell_value_macro_derive;
-mod macro_utils;
 use std::panic;
 
 use proc_macro::TokenStream;
@@ -41,10 +39,11 @@ pub fn chell_definition(attr: TokenStream, item: TokenStream) -> TokenStream {
     {
         panic!("first attr in chell definition must be id");
     }
-    let syn::Expr::Lit(id_expr) = name_value_pairs[0].value.clone() else {
-        panic!("wrong macro attributes")
-    };
-    let syn::Lit::Int(id_lit) = id_expr.lit else {
+    let syn::Expr::Lit(syn::ExprLit {
+        lit: syn::Lit::Int(id_lit),
+        ..
+    }) = name_value_pairs[0].value.clone()
+    else {
         panic!("wrong macro attributes")
     };
     let id = id_lit
