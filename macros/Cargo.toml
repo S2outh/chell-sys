@@ -3,7 +3,7 @@ proc-macro = true
 
 [package]
 name = "chell-macros"
-version = "9.3.0"
+version = "9.3.1"
 edition = "2024"
 
 [features]
