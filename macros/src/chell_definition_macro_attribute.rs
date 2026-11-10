@@ -209,9 +209,9 @@ fn generate_struct(
             let label = format!("{} - {}", label, name);
             quote! {
                 #[doc = "[[parserd]]"]
-                #[doc = concat!("label = {}", #label)]
-                #[doc = concat!("address = {}.{}", #address, stringify!(#name))]
-                #[doc = concat!("type = {}", #doctype)]
+                #[doc = concat!("label = ", #label)]
+                #[doc = concat!("address = ", #address, ".", stringify!(#name))]
+                #[doc = concat!("type = ", #doctype)]
             }
         });
 
@@ -297,14 +297,14 @@ fn generate_struct(
     };
     [
         quote! {
-            #[doc = concat!("# {}", stringify!(#def))]
+            #[doc = concat!("# ", #label)]
             #docs
             #[doc = ""]
             #[doc = "```tooling"]
-            #[doc = concat!("label = {}", #label)]
-            #[doc = concat!("address = {}", #address)]
-            #[doc = concat!("type = {}", #doctype)]
-            #[doc = concat!("command = {}", #is_command)]
+            #[doc = concat!("label = ", #label)]
+            #[doc = concat!("address = ", #address)]
+            #[doc = concat!("type = ", #doctype)]
+            #[doc = concat!("command = ", #is_command)]
             #[doc = ""]
             #(#parser_docs)*
             #[doc = "```"]
