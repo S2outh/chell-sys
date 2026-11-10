@@ -16,13 +16,13 @@ const DOC_MACRO_IDENT: &str = "doc";
 
 struct DefMacroArgs {
     ty: Type,
-    doctype: Option<String>,
+    doctype: String,
 }
 
 impl Parse for DefMacroArgs {
     fn parse(input: ParseStream) -> syn::Result<Self> {
         let ty: Type = input.parse()?;
-        let mut args = Self { ty, doctype: None };
+        let mut doctype = None;
         while !input.is_empty() {
             input.parse::<Token![,]>()?;
             let kv_pair: MetaNameValue = input.parse()?;
@@ -31,18 +31,19 @@ impl Parse for DefMacroArgs {
             match key.as_str() {
                 "doc" => {
                     let Expr::Lit(syn::ExprLit {
-                        lit: syn::Lit::Str(doctype),
+                        lit: syn::Lit::Str(litstr),
                         ..
                     }) = value
                     else {
                         return Err(syn::Error::new(input.span(), "Wrong expression"));
                     };
-                    args.doctype = Some(doctype.value());
+                    doctype = Some(litstr.value());
                 }
                 _ => return Err(syn::Error::new(input.span(), "Wrong expression")),
             }
         }
-        Ok(args)
+        let doctype = doctype.unwrap_or(ty.clone().to_token_stream().to_string());
+        Ok(Self { ty, doctype })
     }
 }
 
@@ -50,7 +51,7 @@ struct ParserMacroArgs {
     name: Ident,
     ty: Type,
     expr: Expr,
-    doctype: Option<String>,
+    doctype: String,
 }
 
 impl Parse for ParserMacroArgs {
@@ -59,12 +60,7 @@ impl Parse for ParserMacroArgs {
         input.parse::<Token![->]>()?;
         let ty: Type = input.parse()?;
         let expr: Expr = input.parse()?;
-        let mut args = Self {
-            name,
-            ty,
-            expr,
-            doctype: None,
-        };
+        let mut doctype = None;
         while !input.is_empty() {
             input.parse::<Token![,]>()?;
             let kv_pair: MetaNameValue = input.parse()?;
@@ -73,18 +69,24 @@ impl Parse for ParserMacroArgs {
             match key.as_str() {
                 "doc" => {
                     let Expr::Lit(syn::ExprLit {
-                        lit: syn::Lit::Str(doctype),
+                        lit: syn::Lit::Str(litstr),
                         ..
                     }) = value
                     else {
                         return Err(syn::Error::new(input.span(), "Wrong expression"));
                     };
-                    args.doctype = Some(doctype.value());
+                    doctype = Some(litstr.value());
                 }
                 _ => return Err(syn::Error::new(input.span(), "Wrong expression")),
             }
         }
-        Ok(args)
+        let doctype = doctype.unwrap_or(ty.clone().to_token_stream().to_string());
+        Ok(Self {
+            name,
+            ty,
+            expr,
+            doctype,
+        })
     }
 }
 
