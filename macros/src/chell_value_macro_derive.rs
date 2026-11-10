@@ -51,7 +51,7 @@ fn impl_enum(tm_value_enum: syn::DataEnum, attrs: Vec<syn::Attribute>) -> TokenS
     let tag_type: syn::Type = attrs
         .iter()
         .find(|attr| attr.path().is_ident("repr"))
-        .map(|attr| attr.parse_args().unwrap())
+        .map(|attr| attr.parse_args().expect("incompatible enum representation"))
         .unwrap_or(syn::parse_quote!(isize));
 
     let variant_sizes = tm_value_enum.variants.iter().map(|v| {

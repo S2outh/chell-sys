@@ -245,9 +245,9 @@ fn generate_struct(
     // Ground serialization funktionality
     let serializer_funcs = parser_args
         .iter()
-        .map(|ParserMacroArgs { name, expr, .. }| {
+        .map(|ParserMacroArgs { name, ty, expr, .. }| {
             quote! {{
-                let converted_value = (#expr)(&self);
+                let converted_value: #ty = (#expr)(&self);
                 let gt_value = GroundTelemetry::new(timestamp, &converted_value);
                 let bytes = serializer(&gt_value)?;
                 serialized_pairs.push((concat!(#address, ".", stringify!(#name)), bytes));
