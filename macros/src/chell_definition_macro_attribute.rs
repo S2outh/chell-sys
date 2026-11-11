@@ -14,6 +14,16 @@ const ID_MACRO_IDENT: &str = "id";
 const COMMAND_MACRO_IDENT: &str = "command";
 const DOC_MACRO_IDENT: &str = "doc";
 
+fn ty_to_doctype(ty: Type) -> String {
+    if let Type::Path(typath) = ty {
+        typath.path.segments.last().to_token_stream()
+    } else {
+        ty.to_token_stream()
+    }
+    .to_string()
+    .replace(" ", "")
+}
+
 struct DefMacroArgs {
     ty: Type,
     doctype: String,
@@ -42,7 +52,7 @@ impl Parse for DefMacroArgs {
                 _ => return Err(syn::Error::new(input.span(), "Wrong expression")),
             }
         }
-        let doctype = doctype.unwrap_or(ty.clone().to_token_stream().to_string());
+        let doctype = doctype.unwrap_or(ty_to_doctype(ty.clone()));
         Ok(Self { ty, doctype })
     }
 }
@@ -80,7 +90,7 @@ impl Parse for ParserMacroArgs {
                 _ => return Err(syn::Error::new(input.span(), "Wrong expression")),
             }
         }
-        let doctype = doctype.unwrap_or(ty.clone().to_token_stream().to_string());
+        let doctype = doctype.unwrap_or(ty_to_doctype(ty.clone()));
         Ok(Self {
             name,
             ty,
